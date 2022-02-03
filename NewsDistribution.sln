@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewsDistribution", "NewsDistribution\NewsDistribution.csproj", "{955442D9-3A0C-4B83-9987-50EC139A92C2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp", "ConsoleApp\ConsoleApp.csproj", "{5CDB26B6-8B86-407F-8837-52E1556406DA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{955442D9-3A0C-4B83-9987-50EC139A92C2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{955442D9-3A0C-4B83-9987-50EC139A92C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{955442D9-3A0C-4B83-9987-50EC139A92C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{955442D9-3A0C-4B83-9987-50EC139A92C2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5CDB26B6-8B86-407F-8837-52E1556406DA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5CDB26B6-8B86-407F-8837-52E1556406DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5CDB26B6-8B86-407F-8837-52E1556406DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5CDB26B6-8B86-407F-8837-52E1556406DA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
