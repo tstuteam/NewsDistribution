@@ -1,20 +1,12 @@
 ﻿namespace NewsDistribution;
 
-public class News
+/// <summary>
+///     Новость.
+/// </summary>
+public record News(string Title, string Description, string Content)
 {
-    private readonly string _title;
-    private readonly string _description;
-    private readonly string _content;
-
-    public News(string title, string description, string content)
-    {
-        _title = title;
-        _description = description;
-        _content = content;
-    }
-
     public override string ToString()
     {
-        return $"Title: {_title}\nDescription: {_description}\nContent: {_content}";
+        return $"Title: {Title}\nDescription: {Description}\nContent: {Content}";
     }
 }
