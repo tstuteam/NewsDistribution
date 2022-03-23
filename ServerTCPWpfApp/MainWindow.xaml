@@ -18,9 +18,9 @@
                 <RowDefinition />
             </Grid.RowDefinitions>
 
-            <TextBox Grid.Row="0" Name="titleTextBox">Title</TextBox>
-            <TextBox Grid.Row="1" Name="descriptionTextBox">Description</TextBox>
-            <TextBox Grid.Row="2" Name="contentTextBox">Content</TextBox>
+            <TextBox Grid.Row="0" Name="TitleTextBox">Title</TextBox>
+            <TextBox Grid.Row="1" Name="DescriptionTextBox">Description</TextBox>
+            <TextBox Grid.Row="2" Name="ContentTextBox">Content</TextBox>
         </Grid>
 
         <Grid Grid.Column="1">
@@ -30,76 +30,12 @@
                 <RowDefinition Height="0.1*" />
                 <RowDefinition Height="0.25*" />
             </Grid.RowDefinitions>
-            <TextBlock FontWeight="Bold" TextDecorations="Underline" Text="List of clients" Grid.Row="0" />
 
-            <ListBox Name="clientsListBox" Grid.Row="1">
-                <ListBoxItem Background="LightGray">LG Nexus 5X</ListBoxItem>
-                <ListBoxItem>Huawei Nexus 6P</ListBoxItem>
-                <ListBoxItem Background="LightGray">iPhone 6S</ListBoxItem>
-                <ListBoxItem>iPhone 6S Plus</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
-                <ListBoxItem Background="LightGray">LG Nexus 5X</ListBoxItem>
-                <ListBoxItem>Huawei Nexus 6P</ListBoxItem>
-                <ListBoxItem Background="LightGray">iPhone 6S</ListBoxItem>
-                <ListBoxItem>iPhone 6S Plus</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
-                <ListBoxItem Background="LightGray">LG Nexus 5X</ListBoxItem>
-                <ListBoxItem>Huawei Nexus 6P</ListBoxItem>
-                <ListBoxItem Background="LightGray">iPhone 6S</ListBoxItem>
-                <ListBoxItem>iPhone 6S Plus</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
-                <ListBoxItem Background="LightGray">LG Nexus 5X</ListBoxItem>
-                <ListBoxItem>Huawei Nexus 6P</ListBoxItem>
-                <ListBoxItem Background="LightGray">iPhone 6S</ListBoxItem>
-                <ListBoxItem>iPhone 6S Plus</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
-                <ListBoxItem Background="LightGray">LG Nexus 5X</ListBoxItem>
-                <ListBoxItem>Huawei Nexus 6P</ListBoxItem>
-                <ListBoxItem Background="LightGray">iPhone 6S</ListBoxItem>
-                <ListBoxItem>iPhone 6S Plus</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
-                <ListBoxItem Background="LightGray">LG Nexus 5X</ListBoxItem>
-                <ListBoxItem>Huawei Nexus 6P</ListBoxItem>
-                <ListBoxItem Background="LightGray">iPhone 6S</ListBoxItem>
-                <ListBoxItem>iPhone 6S Plus</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
-                <ListBoxItem Background="LightGray">LG Nexus 5X</ListBoxItem>
-                <ListBoxItem>Huawei Nexus 6P</ListBoxItem>
-                <ListBoxItem Background="LightGray">iPhone 6S</ListBoxItem>
-                <ListBoxItem>iPhone 6S Plus</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
-                <ListBoxItem Background="LightGray">LG Nexus 5X</ListBoxItem>
-                <ListBoxItem>Huawei Nexus 6P</ListBoxItem>
-                <ListBoxItem Background="LightGray">iPhone 6S</ListBoxItem>
-                <ListBoxItem>iPhone 6S Plus</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
-                <ListBoxItem Background="LightGray">LG Nexus 5X</ListBoxItem>
-                <ListBoxItem>Huawei Nexus 6P</ListBoxItem>
-                <ListBoxItem Background="LightGray">iPhone 6S</ListBoxItem>
-                <ListBoxItem>iPhone 6S Plus</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
-                <ListBoxItem Background="LightGray">LG Nexus 5X</ListBoxItem>
-                <ListBoxItem>Huawei Nexus 6P</ListBoxItem>
-                <ListBoxItem Background="LightGray">iPhone 6S</ListBoxItem>
-                <ListBoxItem>iPhone 6S Plus</ListBoxItem>
-                <ListBoxItem Background="LightGray">Аsus Zenphone 2</ListBoxItem>
-                <ListBoxItem>Microsoft Lumia 950</ListBoxItem>
+            <TextBlock FontWeight="Bold" TextDecorations="Underline" Text="List of clients" Grid.Row="0" />
+            <ListBox Name="ClientsListBox" Grid.Row="1">
             </ListBox>
 
-            <Label Grid.Row="2" Name="statusLabel" />
+            <Label Grid.Row="2" Name="StatusLabel" />
 
             <Grid Grid.Row="3">
                 <Grid.ColumnDefinitions>
@@ -108,9 +44,9 @@
                     <ColumnDefinition />
                 </Grid.ColumnDefinitions>
 
-                <Button Grid.Column="0" Name="sendButton" Click="sendButton_Click">Send</Button>
-                <Button Grid.Column="1" Name="enableButton" Click="enableButton_Click">Enable the server</Button>
-                <Button Grid.Column="2" Name="disableButton" Click="disableButton_Click">Disable the server</Button>
+                <Button Grid.Column="0" Click="sendButton_Click">Send</Button>
+                <Button Grid.Column="1" Click="enableButton_Click">Enable the server</Button>
+                <Button Grid.Column="2" Click="disableButton_Click">Disable the server</Button>
             </Grid>
         </Grid>
     </Grid>

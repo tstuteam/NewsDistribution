@@ -4,6 +4,33 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid />
+        Title="Client" Height="450" Width="800">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition />
+            <ColumnDefinition />
+        </Grid.ColumnDefinitions>
+        
+        <TextBlock Grid.Column="0" Name="NewsTextBlock" />
+        
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            
+            <StackPanel Grid.Row="0" Orientation="Horizontal">
+                <Label>Your name:</Label>
+                <TextBox Name="UserName"/>
+            </StackPanel>
+            
+            <Viewbox Grid.Row="1">
+            <StackPanel  Orientation="Horizontal">
+                <Button Click="ConnectButton_onClick">Connect</Button>
+                <Button Click="DisconnectButton_onClick">Disconnect</Button>
+            </StackPanel>
+            </Viewbox>
+        </Grid>
+    </Grid>
 </Window>

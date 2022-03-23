@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Windows;
+using NewsDistribution;
 
 namespace ServerTCPWpfApp;
 
@@ -11,10 +12,11 @@ namespace ServerTCPWpfApp;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private const string Ip = "127.0.0.1";
     private const int Port = 8910;
     private const int MaxConnections = 16;
     private const int BufferSize = 256;
+    private static readonly IPHostEntry IpHost = Dns.GetHostEntry("localhost");
+    private readonly IPAddress _ipAddress = IpHost.AddressList[0];
     private IPEndPoint? _iPEndPoint;
     private Socket? _listenSocket;
 
@@ -36,13 +38,13 @@ public partial class MainWindow : Window
     {
         try
         {
-            _iPEndPoint = new IPEndPoint(IPAddress.Parse(Ip), Port);
+            _iPEndPoint = new IPEndPoint(_ipAddress, Port);
             _listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             _listenSocket.Bind(_iPEndPoint);
             _listenSocket.Listen(MaxConnections);
 
-            statusLabel.Content = "Server started. Waiting for connections.";
+            StatusLabel.Content = "Server started. Waiting for connections.";
 
             while (true)
             {
@@ -74,7 +76,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            statusLabel.Content = exception.ToString();
+            StatusLabel.Content = exception.ToString();
             MessageBox.Show(exception.ToString());
         }
     }
@@ -82,6 +84,6 @@ public partial class MainWindow : Window
     private void disableButton_Click(object sender, RoutedEventArgs e)
     {
         _listenSocket?.Close();
-        statusLabel.Content = "The server is stopped.";
+        StatusLabel.Content = "The server is stopped.";
     }
 }
