@@ -4,7 +4,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Server" Height="450" Width="800">
+        Title="Server" Height="450" Width="800"
+        DataContext="{Binding RelativeSource={RelativeSource Self}}">
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition />
@@ -32,7 +34,15 @@
             </Grid.RowDefinitions>
 
             <TextBlock FontWeight="Bold" TextDecorations="Underline" Text="List of clients" Grid.Row="0" />
-            <ListBox Name="ClientsListBox" Grid.Row="1">
+            
+            <ListBox Name="ClientsListBox"
+                     Grid.Row="1"
+                     ItemsSource="{Binding Clients}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Key}"/>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
             </ListBox>
 
             <Label Grid.Row="2" Name="StatusLabel" />
