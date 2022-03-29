@@ -64,10 +64,10 @@ public class NewsServer
 
 
     /// <summary>
-    ///     Delegate for OnClientAuthorized.
+    ///     Delegate for OnClientAuthenticated.
     /// </summary>
     /// <param name="name">Client name.</param>
-    public delegate void ClientAuthorized(string name);
+    public delegate void ClientAuthenticated(string name);
 
     /// <summary>
     ///     Delegate for OnClientUnsubscribed.
@@ -77,9 +77,9 @@ public class NewsServer
 
     
     /// <summary>
-    ///     Invoked when a client successfully authorizes.
+    ///     Invoked when a client successfully authenticates.
     /// </summary>
-    public event ClientAuthorized? OnClientAuthorized;
+    public event ClientAuthenticated? OnClientAuthenticated;
 
     /// <summary>
     ///     Invoked when a client disconnects.
@@ -164,7 +164,7 @@ public class NewsServer
 
                 NetworkStream clientStream = new(clientSocket);
 
-                NetworkClient? client = AuthorizeClient(clientSocket);
+                NetworkClient? client = AuthenticateClient(clientSocket);
 
                 clientStream.WriteByte(client != null ? (byte)1 : (byte)0);
                 clientStream.Flush();
@@ -221,11 +221,11 @@ public class NewsServer
     }
 
     /// <summary>
-    ///     Authorizes the client.
+    ///     Authenticates the client.
     /// </summary>
     /// <param name="socket">Client socket.</param>
     /// <returns>Created NetworkClient or <c>null</c>.</returns>
-    private NetworkClient? AuthorizeClient(Socket socket)
+    private NetworkClient? AuthenticateClient(Socket socket)
     {
         byte[] buffer = new byte[256];
 
@@ -266,7 +266,7 @@ public class NewsServer
             return null;
         }
 
-        OnClientAuthorized?.Invoke(name);
+        OnClientAuthenticated?.Invoke(name);
 
         return client;
     }

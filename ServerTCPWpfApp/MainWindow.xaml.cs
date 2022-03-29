@@ -15,7 +15,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        _server.OnClientAuthorized += _ => UpdateClientList();
+        _server.OnClientAuthenticated += _ => UpdateClientList();
         _server.OnClientUnsubscribed += _ => UpdateClientList();
     }
 

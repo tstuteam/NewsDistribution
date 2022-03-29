@@ -85,10 +85,10 @@ public class NewsClient
         _stream = new NetworkStream(_socket);
         _reader = new BinaryReader(_stream);
 
-        SendAuthorizationPacket(name);
-        bool authorized = ReceiveAuthorizationPacket();
+        SendAuthenticationPacket(name);
+        bool authenticated = ReceiveAuthenticationPacket();
 
-        if (authorized)
+        if (authenticated)
         {
             _receiveThread = new Thread(ReceiveThreadProc);
             _receiveThread.Start();
@@ -101,7 +101,7 @@ public class NewsClient
             _socket = null;
         }
 
-        return authorized;
+        return authenticated;
     }
 
     /// <summary>
@@ -165,11 +165,11 @@ public class NewsClient
     }
 
     /// <summary>
-    ///     Sends the authorization packet to the server.
+    ///     Sends the authentication packet to the server.
     /// </summary>
     /// <param name="name">Client name.</param>
     /// <exception cref="InvalidOperationException">Client is not connected.</exception>
-    private void SendAuthorizationPacket(string name)
+    private void SendAuthenticationPacket(string name)
     {
         if (_socket == null)
             throw new InvalidOperationException();
@@ -186,11 +186,11 @@ public class NewsClient
     }
 
     /// <summary>
-    ///     Receives the authorization packet from the server.
+    ///     Receives the authentication packet from the server.
     /// </summary>
-    /// <returns><c>true</c> if authorized.</returns>
+    /// <returns><c>true</c> if authenticated.</returns>
     /// <exception cref="InvalidOperationException">Client is not connected.</exception>
-    private bool ReceiveAuthorizationPacket()
+    private bool ReceiveAuthenticationPacket()
     {
         if (_socket == null)
             throw new InvalidOperationException();
