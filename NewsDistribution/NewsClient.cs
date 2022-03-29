@@ -3,19 +3,62 @@ using System.Net.Sockets;
 
 namespace NewsDistribution;
 
+/// <summary>
+///     TCP news client implementation.
+/// </summary>
 public class NewsClient
 {
+    /// <summary>
+    ///     Connection socket.
+    /// </summary>
     private Socket? _socket;
+
+    /// <summary>
+    ///     Connection socket stream.
+    /// </summary>
     private NetworkStream? _stream;
+
+    /// <summary>
+    ///     Connection socket stream reader.
+    /// </summary>
     private BinaryReader? _reader;
+
+    /// <summary>
+    ///     Read-write buffer.
+    /// </summary>
     private readonly byte[] _buffer = new byte[2048];
+
+    /// <summary>
+    ///     Thread for processing incoming packets.
+    /// </summary>
     private Thread? _receiveThread;
 
+
+    /// <summary>
+    ///     Thread cancellation token source.
+    /// </summary>
     private CancellationTokenSource? _disconnectToken;
 
+
+    /// <summary>
+    ///     Delegate for OnNewsReceived.
+    /// </summary>
+    /// <param name="news">Received news.</param>
     public delegate void NewsReceived(News news);
+
+    /// <summary>
+    ///     Invoked when the server sends news.
+    /// </summary>
     public event NewsReceived? OnNewsReceived;
 
+    /// <summary>
+    ///     Attempts to connect to a server.
+    /// </summary>
+    /// <param name="name">Client name.</param>
+    /// <param name="address">Server address.</param>
+    /// <param name="port">Server port.</param>
+    /// <returns><c>true</c> if connected.</returns>
+    /// <exception cref="ArgumentException">Name is either empty or too long (>256).</exception>
     public bool Connect(string name, string address, ushort port)
     {
         if (name == string.Empty || name.Length > 256)
@@ -61,6 +104,10 @@ public class NewsClient
         return authorized;
     }
 
+    /// <summary>
+    ///     Disconnects the client from the server.
+    /// </summary>
+    /// <param name="sendPacket">Should the client send the <c>Unsubscribe</c> packet to the server?</param>
     public void Disconnect(bool sendPacket = true)
     {
         if (_socket == null)
@@ -79,6 +126,9 @@ public class NewsClient
         _socket = null;
     }
 
+    /// <summary>
+    ///     Processes received packets.
+    /// </summary>
     private async void ReceiveThreadProc()
     {
         if (_socket == null)
@@ -114,6 +164,11 @@ public class NewsClient
         }
     }
 
+    /// <summary>
+    ///     Sends the authorization packet to the server.
+    /// </summary>
+    /// <param name="name">Client name.</param>
+    /// <exception cref="InvalidOperationException">Client is not connected.</exception>
     private void SendAuthorizationPacket(string name)
     {
         if (_socket == null)
@@ -130,6 +185,11 @@ public class NewsClient
         _stream.Flush();
     }
 
+    /// <summary>
+    ///     Receives the authorization packet from the server.
+    /// </summary>
+    /// <returns><c>true</c> if authorized.</returns>
+    /// <exception cref="InvalidOperationException">Client is not connected.</exception>
     private bool ReceiveAuthorizationPacket()
     {
         if (_socket == null)
@@ -140,6 +200,10 @@ public class NewsClient
         return _buffer[0] != 0;
     }
 
+    /// <summary>
+    ///     Received the news packet from the server.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Client is not connected.</exception>
     private void ReceiveNewsPacket()
     {
         if (_socket == null)
