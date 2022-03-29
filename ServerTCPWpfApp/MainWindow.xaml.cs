@@ -1,8 +1,4 @@
-﻿using System;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Windows;
+﻿using System.Windows;
 using NewsDistribution;
 
 namespace ServerTCPWpfApp;
@@ -13,77 +9,50 @@ namespace ServerTCPWpfApp;
 public partial class MainWindow : Window
 {
     private const int Port = 8910;
-    private const int MaxConnections = 16;
-    private const int BufferSize = 256;
-    private static readonly IPHostEntry IpHost = Dns.GetHostEntry("localhost");
-    private readonly IPAddress _ipAddress = IpHost.AddressList[0];
-    private IPEndPoint? _iPEndPoint;
-    private Socket? _listenSocket;
+    private readonly NewsServer _server = new();
 
     public MainWindow()
     {
         InitializeComponent();
+
+        _server.OnClientAuthenticated += _ => UpdateClientList();
+        _server.OnClientUnsubscribed += _ => UpdateClientList();
     }
 
     ~MainWindow()
     {
-        _listenSocket?.Close();
+        _server.Shutdown();
+    }
+
+    private void UpdateClientList()
+    {
+        Dispatcher.Invoke(() =>
+            ClientsListBox.ItemsSource = _server.Clients
+        );
     }
 
     private void sendButton_Click(object sender, RoutedEventArgs e)
     {
+        _server.SendNews(new News(
+            TitleTextBox.Text,
+            DescriptionTextBox.Text,
+            ContentTextBox.Text
+        ));
     }
 
     private void enableButton_Click(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            _iPEndPoint = new IPEndPoint(_ipAddress, Port);
-            _listenSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        if (_server.Start(Port))
+            StatusLabel.Content = "Server started, waiting for connections.";
+        else
+            StatusLabel.Content = "Failed to start the server.";
 
-            _listenSocket.Bind(_iPEndPoint);
-            _listenSocket.Listen(MaxConnections);
-
-            StatusLabel.Content = "Server started. Waiting for connections.";
-
-            while (true)
-            {
-                var handler = _listenSocket.Accept();
-                var builder = new StringBuilder();
-                var data = new byte[BufferSize];
-
-                do
-                {
-                    var bytes = handler.Receive(data);
-                    builder.Append(Encoding.Unicode.GetString(data, 0, bytes));
-                } while (handler.Available > 0);
-
-                switch (builder.ToString())
-                {
-                    case "Subscribe":
-                        break;
-                    case "Unsubscribe":
-                        break;
-                }
-                
-                const string message = "Message has been delivered.";
-                data = Encoding.Unicode.GetBytes(message);
-                handler.Send(data);
-
-                handler.Shutdown(SocketShutdown.Both);
-                handler.Close();
-            }
-        }
-        catch (Exception exception)
-        {
-            StatusLabel.Content = exception.ToString();
-            MessageBox.Show(exception.ToString());
-        }
+        //_server.On
     }
 
     private void disableButton_Click(object sender, RoutedEventArgs e)
     {
-        _listenSocket?.Close();
-        StatusLabel.Content = "The server is stopped.";
+        _server.Shutdown();
+        StatusLabel.Content = "Server stopped.";
     }
 }
