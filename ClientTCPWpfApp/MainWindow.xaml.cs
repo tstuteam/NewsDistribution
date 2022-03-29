@@ -13,8 +13,8 @@ namespace ClientTCPWpfApp;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private const string _address = "127.0.0.1";
-    private const int _port = 8910;
+    private const string Address = "127.0.0.1";
+    private const int Port = 8910;
     private readonly NewsClient _client = new();
 
     public MainWindow()
@@ -34,7 +34,7 @@ public partial class MainWindow : Window
         if (name.Length == 0)
             return;
 
-        _client.Connect(name, _address, _port);
+        _client.Connect(name, Address, Port);
 
         _client.OnNewsReceived += (news) =>
         {
