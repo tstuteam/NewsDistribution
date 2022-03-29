@@ -29,11 +29,18 @@ public partial class MainWindow : Window
 
     private void ConnectButton_onClick(object sender, RoutedEventArgs e)
     {
-        _client.Connect(UserName.Text, _address, _port);
+        string name = UserName.Text;
 
-        _client.OnNewsReceived += (title, description, content) =>
+        if (name.Length == 0)
+            return;
+
+        _client.Connect(name, _address, _port);
+
+        _client.OnNewsReceived += (news) =>
         {
-            NewsTextBlock.Text += $"\t{title}\n{description}\n{content}\n\n";
+            Dispatcher.Invoke(() =>
+                NewsTextBlock.Text += $"\t{news.Title}\n{news.Description}\n{news.Content}\n\n"
+            );
         };
     }
 

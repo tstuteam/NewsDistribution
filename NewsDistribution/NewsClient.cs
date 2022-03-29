@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text;
 using System.Net.Sockets;
 
 namespace NewsDistribution;
@@ -11,10 +7,13 @@ public class NewsClient
 {
     private Socket? _socket;
     private NetworkStream? _stream;
+    private BinaryReader? _reader;
     private readonly byte[] _buffer = new byte[2048];
-    Thread? _receiveThread;
+    private Thread? _receiveThread;
 
-    public delegate void NewsReceived(string title, string description, string content);
+    private CancellationTokenSource? _disconnectToken;
+
+    public delegate void NewsReceived(News news);
     public event NewsReceived? OnNewsReceived;
 
     public bool Connect(string name, string address, ushort port)
@@ -38,7 +37,10 @@ public class NewsClient
             return false;
         }
 
-        _stream = new(_socket);
+        _disconnectToken = new CancellationTokenSource();
+
+        _stream = new NetworkStream(_socket);
+        _reader = new BinaryReader(_stream);
 
         SendAuthorizationPacket(name);
         bool authorized = ReceiveAuthorizationPacket();
@@ -64,36 +66,51 @@ public class NewsClient
         if (_socket == null)
             return;
 
+        _disconnectToken.Cancel();
+
         if (sendPacket)
         {
             _buffer[0] = (byte)PacketType.Unsubscribe;
             _socket.Send(_buffer, 1, SocketFlags.None);
         }
 
-        _socket.Disconnect(false);
+        _socket.Close();
         _stream!.Close();
         _socket = null;
     }
 
-    private void ReceiveThreadProc()
+    private async void ReceiveThreadProc()
     {
         if (_socket == null)
             return;
 
-        while (true)
+        bool run = true;
+
+        try
         {
-            _socket.Receive(_buffer, 1, SocketFlags.None);
-
-            switch ((PacketType)_buffer[0])
+            while (run)
             {
-                case PacketType.Unsubscribe:
-                    Disconnect(false);
-                    break;
+                await _socket.ReceiveAsync(_buffer.AsMemory(0, 1), SocketFlags.None, _disconnectToken.Token);
 
-                case PacketType.News:
-                    ReceiveNewsPacket();
-                    break;
+                PacketType packetType = (PacketType)_buffer[0];
+
+                switch (packetType)
+                {
+                    case PacketType.Unsubscribe:
+                        Disconnect(false);
+                        run = false;
+                        break;
+
+                    case PacketType.News:
+                        ReceiveNewsPacket();
+                        break;
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            Disconnect(false);
+            return;
         }
     }
 
@@ -128,12 +145,10 @@ public class NewsClient
         if (_socket == null)
             throw new InvalidOperationException();
 
-        using var reader = new BinaryReader(_stream!);
+        string title = _reader!.ReadString();
+        string Description = _reader.ReadString();
+        string Content = _reader.ReadString();
 
-        string title = reader.ReadString();
-        string Description = reader.ReadString();
-        string Content = reader.ReadString();
-
-        OnNewsReceived?.Invoke(title, Description, Content);
+        OnNewsReceived?.Invoke(new News(title, Description, Content));
     }
 }

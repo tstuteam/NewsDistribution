@@ -34,15 +34,9 @@
             </Grid.RowDefinitions>
 
             <TextBlock FontWeight="Bold" TextDecorations="Underline" Text="List of clients" Grid.Row="0" />
-            
+
             <ListBox Name="ClientsListBox"
-                     Grid.Row="1"
-                     ItemsSource="{Binding Clients}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding Key}"/>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
+                     Grid.Row="1">
             </ListBox>
 
             <Label Grid.Row="2" Name="StatusLabel" />

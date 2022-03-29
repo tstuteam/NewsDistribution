@@ -1,10 +1,5 @@
-﻿using System;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Windows;
+﻿using System.Windows;
 using NewsDistribution;
-using System.Collections.Generic;
 
 namespace ServerTCPWpfApp;
 
@@ -13,17 +8,15 @@ namespace ServerTCPWpfApp;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private const int _port = 8910;
+    private const int Port = 8910;
     private readonly NewsServer _server = new();
-
-    public Dictionary<string, NetworkClient> Clients
-    {
-        get => _server.Clients;
-    }
 
     public MainWindow()
     {
         InitializeComponent();
+
+        _server.OnClientAuthorized += _ => UpdateClientList();
+        _server.OnClientUnsubscribed += _ => UpdateClientList();
     }
 
     ~MainWindow()
@@ -31,13 +24,25 @@ public partial class MainWindow : Window
         _server.Shutdown();
     }
 
+    private void UpdateClientList()
+    {
+        Dispatcher.Invoke(() =>
+            ClientsListBox.ItemsSource = _server.Clients
+        );
+    }
+
     private void sendButton_Click(object sender, RoutedEventArgs e)
     {
+        _server.SendNews(new News(
+            TitleTextBox.Text,
+            DescriptionTextBox.Text,
+            ContentTextBox.Text
+        ));
     }
 
     private void enableButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_server.Start(_port))
+        if (_server.Start(Port))
             StatusLabel.Content = "Server started, waiting for connections.";
         else
             StatusLabel.Content = "Failed to start the server.";
