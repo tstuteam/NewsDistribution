@@ -10,11 +10,11 @@
             <ColumnDefinition />
             <ColumnDefinition />
         </Grid.ColumnDefinitions>
-        
+
         <ScrollViewer Grid.Column="0">
-            <TextBlock Name="NewsTextBlock" />
+            <TextBlock Name="NewsTextBlock" TextWrapping="Wrap"/>
         </ScrollViewer>
-        
+
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -27,7 +27,7 @@
                 <TextBlock Text="Your name:" Margin="8" />
                 <TextBox Height="25" Width="Auto" Name="UserName" />
             </DockPanel>
-            
+
             <DockPanel Grid.Row="1" LastChildFill="True">
                 <TextBlock Text="IP:" Margin="8" />
                 <TextBox Height="25" Width="Auto" Name="Address" />

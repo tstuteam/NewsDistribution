@@ -8,7 +8,6 @@ namespace ClientTCPWpfApp;
 /// </summary>
 public partial class MainWindow : Window
 {
-    
     private const int Port = 8910;
     private readonly NewsClient _client = new();
 
