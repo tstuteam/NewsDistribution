@@ -697,3 +697,4 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudio,rider,csharp,windows,linux
 .idea/
+.vscode/

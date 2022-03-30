@@ -1,5 +1,5 @@
-﻿using System.Text;
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
+using System.Text;
 
 namespace NewsDistribution;
 
@@ -9,6 +9,33 @@ namespace NewsDistribution;
 public class NewsClient
 {
     /// <summary>
+    ///     Delegate for OnNewsReceived.
+    /// </summary>
+    /// <param name="news">Received news.</param>
+    public delegate void NewsReceived(News news);
+
+    /// <summary>
+    ///     Read-write buffer.
+    /// </summary>
+    private readonly byte[] _buffer = new byte[2048];
+
+
+    /// <summary>
+    ///     Thread cancellation token source.
+    /// </summary>
+    private CancellationTokenSource? _disconnectToken;
+
+    /// <summary>
+    ///     Connection socket stream reader.
+    /// </summary>
+    private BinaryReader? _reader;
+
+    /// <summary>
+    ///     Thread for processing incoming packets.
+    /// </summary>
+    private Thread? _receiveThread;
+
+    /// <summary>
     ///     Connection socket.
     /// </summary>
     private Socket? _socket;
@@ -17,34 +44,6 @@ public class NewsClient
     ///     Connection socket stream.
     /// </summary>
     private NetworkStream? _stream;
-
-    /// <summary>
-    ///     Connection socket stream reader.
-    /// </summary>
-    private BinaryReader? _reader;
-
-    /// <summary>
-    ///     Read-write buffer.
-    /// </summary>
-    private readonly byte[] _buffer = new byte[2048];
-
-    /// <summary>
-    ///     Thread for processing incoming packets.
-    /// </summary>
-    private Thread? _receiveThread;
-
-
-    /// <summary>
-    ///     Thread cancellation token source.
-    /// </summary>
-    private CancellationTokenSource? _disconnectToken;
-
-
-    /// <summary>
-    ///     Delegate for OnNewsReceived.
-    /// </summary>
-    /// <param name="news">Received news.</param>
-    public delegate void NewsReceived(News news);
 
     /// <summary>
     ///     Invoked when the server sends news.
@@ -86,7 +85,7 @@ public class NewsClient
         _reader = new BinaryReader(_stream);
 
         SendAuthenticationPacket(name);
-        bool authenticated = ReceiveAuthenticationPacket();
+        var authenticated = ReceiveAuthenticationPacket();
 
         if (authenticated)
         {
@@ -113,11 +112,11 @@ public class NewsClient
         if (_socket == null)
             return;
 
-        _disconnectToken.Cancel();
+        _disconnectToken?.Cancel();
 
         if (sendPacket)
         {
-            _buffer[0] = (byte)PacketType.Unsubscribe;
+            _buffer[0] = (byte) PacketType.Unsubscribe;
             _socket.Send(_buffer, 1, SocketFlags.None);
         }
 
@@ -131,10 +130,10 @@ public class NewsClient
     /// </summary>
     private async void ReceiveThreadProc()
     {
-        if (_socket == null)
+        if (_socket == null || _disconnectToken == null)
             return;
 
-        bool run = true;
+        var run = true;
 
         try
         {
@@ -142,25 +141,22 @@ public class NewsClient
             {
                 await _socket.ReceiveAsync(_buffer.AsMemory(0, 1), SocketFlags.None, _disconnectToken.Token);
 
-                PacketType packetType = (PacketType)_buffer[0];
-
-                switch (packetType)
+                var packetType = (PacketType) _buffer[0];
+                
+                if (packetType == PacketType.Unsubscribe)
                 {
-                    case PacketType.Unsubscribe:
-                        Disconnect(false);
-                        run = false;
-                        break;
-
-                    case PacketType.News:
-                        ReceiveNewsPacket();
-                        break;
+                    Disconnect(false);
+                    run = false;
+                }
+                else if (packetType == PacketType.News)
+                {
+                    ReceiveNewsPacket();
                 }
             }
         }
         catch (OperationCanceledException)
         {
             Disconnect(false);
-            return;
         }
     }
 
@@ -174,13 +170,13 @@ public class NewsClient
         if (_socket == null)
             throw new InvalidOperationException();
 
-        byte[] nameBytes = Encoding.UTF8.GetBytes(name);
-        int length = nameBytes.Length;
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        var length = nameBytes.Length;
 
         if (length > 256)
             return;
 
-        _stream!.WriteByte((byte)length);
+        _stream!.WriteByte((byte) length);
         _stream.Write(nameBytes);
         _stream.Flush();
     }
@@ -209,10 +205,10 @@ public class NewsClient
         if (_socket == null)
             throw new InvalidOperationException();
 
-        string title = _reader!.ReadString();
-        string Description = _reader.ReadString();
-        string Content = _reader.ReadString();
+        var title = _reader!.ReadString();
+        var description = _reader.ReadString();
+        var content = _reader.ReadString();
 
-        OnNewsReceived?.Invoke(new News(title, Description, Content));
+        OnNewsReceived?.Invoke(new News(title, description, content));
     }
 }

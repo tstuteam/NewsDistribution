@@ -1,6 +1,6 @@
-﻿using System.Text;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace NewsDistribution;
@@ -11,9 +11,9 @@ namespace NewsDistribution;
 public class NetworkClient
 {
     /// <summary>
-    ///     Client socket.
+    ///     Read-write buffer.
     /// </summary>
-    public readonly Socket Socket;
+    public readonly byte[] Buffer = new byte[1024];
 
     /// <summary>
     ///     Client name.
@@ -21,9 +21,9 @@ public class NetworkClient
     public readonly string Name;
 
     /// <summary>
-    ///     Read-write buffer.
+    ///     Client socket.
     /// </summary>
-    public readonly byte[] Buffer = new byte[1024];
+    public readonly Socket Socket;
 
     /// <summary>
     ///     Initializes a NetworkClient instance.
@@ -43,27 +43,6 @@ public class NetworkClient
 public class NewsServer
 {
     /// <summary>
-    ///     Dictionary of clients.
-    /// </summary>
-    private readonly Dictionary<string, NetworkClient> _clients = new();
-
-    /// <summary>
-    ///     Listening socket.
-    /// </summary>
-    private Socket? _listener;
-
-    /// <summary>
-    ///     Thread for processing incoming connections.
-    /// </summary>
-    private Thread? _acceptThread;
-
-    /// <summary>
-    ///     Thread cancellation token source.
-    /// </summary>
-    private CancellationTokenSource? _acceptClientsToken;
-
-
-    /// <summary>
     ///     Delegate for OnClientAuthenticated.
     /// </summary>
     /// <param name="name">Client name.</param>
@@ -75,7 +54,33 @@ public class NewsServer
     /// <param name="name">Client name.</param>
     public delegate void ClientUnsubscribed(string name);
 
-    
+    /// <summary>
+    ///     Dictionary of clients.
+    /// </summary>
+    private readonly Dictionary<string, NetworkClient> _clients = new();
+
+    /// <summary>
+    ///     Thread cancellation token source.
+    /// </summary>
+    private CancellationTokenSource? _acceptClientsToken;
+
+    /// <summary>
+    ///     Thread for processing incoming connections.
+    /// </summary>
+    private Thread? _acceptThread;
+
+    /// <summary>
+    ///     Listening socket.
+    /// </summary>
+    private Socket? _listener;
+
+
+    /// <summary>
+    ///     List of client names.
+    /// </summary>
+    public IEnumerable<string> Clients => _clients.Keys.ToList();
+
+
     /// <summary>
     ///     Invoked when a client successfully authenticates.
     /// </summary>
@@ -85,12 +90,6 @@ public class NewsServer
     ///     Invoked when a client disconnects.
     /// </summary>
     public event ClientUnsubscribed? OnClientUnsubscribed;
-
-
-    /// <summary>
-    ///     List of client names.
-    /// </summary>
-    public List<string> Clients => _clients.Keys.ToList();
 
 
     /// <summary>
@@ -133,7 +132,7 @@ public class NewsServer
 
         _acceptClientsToken!.Cancel();
 
-        foreach (NetworkClient client in _clients.Values)
+        foreach (var client in _clients.Values)
             SendUnsubscribePacket(client);
 
         _clients.Clear();
@@ -142,7 +141,9 @@ public class NewsServer
         {
             _listener.Shutdown(SocketShutdown.Both);
         }
-        catch (SocketException) { }
+        catch (SocketException)
+        {
+        }
 
         _listener.Close();
         _listener = null;
@@ -157,40 +158,37 @@ public class NewsServer
         ArgumentNullException.ThrowIfNull(_acceptClientsToken, nameof(_acceptClientsToken));
 
         while (true)
-        {
             try
             {
-                Socket clientSocket = await _listener.AcceptAsync(_acceptClientsToken.Token);
+                var clientSocket = await _listener.AcceptAsync(_acceptClientsToken.Token);
 
                 NetworkStream clientStream = new(clientSocket);
 
-                NetworkClient? client = AuthenticateClient(clientSocket);
+                var client = AuthenticateClient(clientSocket);
 
-                clientStream.WriteByte(client != null ? (byte)1 : (byte)0);
+                clientStream.WriteByte(client != null ? (byte) 1 : (byte) 0);
                 clientStream.Flush();
 
-                if (client != null)
-                {
-                    Thread clientThread = new(ClientThreadProc);
-                    clientThread.Start(client);
-                }
+                if (client == null) continue;
+                Thread clientThread = new(ClientThreadProc);
+                clientThread.Start(client);
             }
-            catch (OperationCanceledException) {
+            catch (OperationCanceledException)
+            {
                 break;
             }
-        }
     }
 
     /// <summary>
     ///     Processes client packets.
     /// </summary>
-    /// <param name="_client">NetworkClient object.</param>
-    private void ClientThreadProc(object? _client)
+    /// <param name="networkClient">NetworkClient object.</param>
+    private void ClientThreadProc(object? networkClient)
     {
-        NetworkClient client = (NetworkClient)_client!;
+        var client = (NetworkClient) networkClient!;
         client.Socket.ReceiveTimeout = -1;
 
-        bool run = true;
+        var run = true;
 
         while (run)
         {
@@ -207,16 +205,11 @@ public class NewsServer
                 }
             }
 
-            PacketType packetType = (PacketType)client.Buffer[0];
+            var packetType = (PacketType) client.Buffer[0];
 
-            switch (packetType)
-            {
-                case PacketType.Unsubscribe:
-                    UnsubscribeClient(client);
-                    run = false;
-
-                    break;
-            }
+            if (packetType != PacketType.Unsubscribe) continue;
+            UnsubscribeClient(client);
+            run = false;
         }
     }
 
@@ -227,7 +220,7 @@ public class NewsServer
     /// <returns>Created NetworkClient or <c>null</c>.</returns>
     private NetworkClient? AuthenticateClient(Socket socket)
     {
-        byte[] buffer = new byte[256];
+        var buffer = new byte[256];
 
         socket.ReceiveTimeout = 5000;
 
@@ -256,7 +249,7 @@ public class NewsServer
             return null;
 
         NetworkClient client = new(socket, name);
-        
+
         try
         {
             _clients.Add(name, client);
@@ -293,7 +286,7 @@ public class NewsServer
     /// <param name="removeFromTable">Should the client be removed from the table?</param>
     private void SendUnsubscribePacket(NetworkClient client, bool removeFromTable = true)
     {
-        client.Buffer[0] = (byte)PacketType.Unsubscribe;
+        client.Buffer[0] = (byte) PacketType.Unsubscribe;
         client.Socket.Send(client.Buffer, 1, SocketFlags.None);
 
         UnsubscribeClient(client, removeFromTable);
@@ -304,15 +297,16 @@ public class NewsServer
     /// </summary>
     /// <param name="client">Client object.</param>
     /// <param name="news">News to send.</param>
-    private void SendNewsPacket(NetworkClient client, News news)
+    private static void SendNewsPacket(NetworkClient client, News news)
     {
         NetworkStream stream = new(client.Socket);
         BinaryWriter writer = new(stream);
 
-        writer.Write((byte)PacketType.News);
-        writer.Write(news.Title);
-        writer.Write(news.Description);
-        writer.Write(news.Content);
+        writer.Write((byte) PacketType.News);
+        var (title, description, content) = news;
+        writer.Write(title);
+        writer.Write(description);
+        writer.Write(content);
     }
 
     /// <summary>
@@ -321,14 +315,14 @@ public class NewsServer
     /// <param name="news">News to send.</param>
     public void SendNews(News news)
     {
-        foreach (NetworkClient client in _clients.Values)
+        foreach (var client in _clients.Values)
             SendNewsPacket(client, news);
     }
 
     /// <summary>
-    ///     Tries to receive <paramref name="size"/> bytes from
+    ///     Tries to receive <paramref name="size" /> bytes from
     ///     the socket and writes the received data to
-    ///     <paramref name="buffer"/>.
+    ///     <paramref name="buffer" />.
     /// </summary>
     /// <param name="socket">Socket to read from.</param>
     /// <param name="buffer">Buffer to write to.</param>
@@ -336,13 +330,13 @@ public class NewsServer
     /// <returns><c>true</c> if successful, <c>false</c> on time-out.</returns>
     private static bool TryReceive(Socket socket, byte[] buffer, int size)
     {
-        int offset = 0;
+        var offset = 0;
 
         try
         {
             while (size > 0)
             {
-                int received = socket.Receive(buffer, offset, size, SocketFlags.None);
+                var received = socket.Receive(buffer, offset, size, SocketFlags.None);
                 offset += received;
                 size -= received;
             }

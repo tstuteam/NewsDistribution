@@ -10,26 +10,26 @@
             <ColumnDefinition />
             <ColumnDefinition />
         </Grid.ColumnDefinitions>
-        
+
         <TextBlock Grid.Column="0" Name="NewsTextBlock" />
-        
+
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            
+
             <StackPanel Grid.Row="0" Orientation="Horizontal">
                 <Label>Your name:</Label>
-                <TextBox Name="UserName"/>
+                <TextBox Name="UserName" />
             </StackPanel>
-            
+
             <Viewbox Grid.Row="1">
-            <StackPanel  Orientation="Horizontal">
-                <Button Click="ConnectButton_onClick">Connect</Button>
-                <Button Click="DisconnectButton_onClick">Disconnect</Button>
-            </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Button Click="ConnectButton_onClick">Connect</Button>
+                    <Button Click="DisconnectButton_onClick">Disconnect</Button>
+                </StackPanel>
             </Viewbox>
         </Grid>
     </Grid>

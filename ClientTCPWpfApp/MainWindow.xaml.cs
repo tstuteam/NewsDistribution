@@ -1,9 +1,4 @@
-﻿using System;
-using System.Threading;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Windows;
+﻿using System.Windows;
 using NewsDistribution;
 
 namespace ClientTCPWpfApp;
@@ -29,17 +24,20 @@ public partial class MainWindow : Window
 
     private void ConnectButton_onClick(object sender, RoutedEventArgs e)
     {
-        string name = UserName.Text;
+        var name = UserName.Text;
 
         if (name.Length == 0)
             return;
 
         _client.Connect(name, Address, Port);
 
-        _client.OnNewsReceived += (news) =>
+        _client.OnNewsReceived += news =>
         {
             Dispatcher.Invoke(() =>
-                NewsTextBlock.Text += $"\t{news.Title}\n{news.Description}\n{news.Content}\n\n"
+                {
+                    var (title, description, content) = news;
+                    NewsTextBlock.Text += $"\t{title}\n{description}\n{content}\n\n";
+                }
             );
         };
     }
