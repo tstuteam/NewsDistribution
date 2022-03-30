@@ -27,7 +27,7 @@
                 <TextBox Name="DescriptionTextBox" TextWrapping="Wrap">Description</TextBox>
             </ScrollViewer>
             <ScrollViewer Grid.Row="2">
-                <TextBox Name="ContentTextBox" TextWrapping="Wrap">Content</TextBox>
+                <TextBox Name="ContentTextBox" TextWrapping="Wrap" AcceptsReturn="True">Content</TextBox>
             </ScrollViewer>
         </Grid>
 
