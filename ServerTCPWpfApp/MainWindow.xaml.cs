@@ -42,12 +42,7 @@ public partial class MainWindow : Window
 
     private void enableButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_server.Start(Port))
-            StatusLabel.Content = "Server started, waiting for connections.";
-        else
-            StatusLabel.Content = "Failed to start the server.";
-
-        //_server.On
+        StatusLabel.Content = _server.Start(Port) ? "Server started, waiting for connections." : "Failed to start the server.";
     }
 
     private void disableButton_Click(object sender, RoutedEventArgs e)
