@@ -10,25 +10,33 @@
             <ColumnDefinition />
             <ColumnDefinition />
         </Grid.ColumnDefinitions>
-
-        <TextBlock Grid.Column="0" Name="NewsTextBlock" />
-
+        
+        <ScrollViewer Grid.Column="0">
+            <TextBlock Name="NewsTextBlock" />
+        </ScrollViewer>
+        
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Orientation="Horizontal">
-                <Label>Your name:</Label>
-                <TextBox Name="UserName" />
-            </StackPanel>
+            <DockPanel Grid.Row="0" LastChildFill="True">
+                <TextBlock Text="Your name:" Margin="8" />
+                <TextBox Height="25" Width="Auto" Name="UserName" />
+            </DockPanel>
+            
+            <DockPanel Grid.Row="1" LastChildFill="True">
+                <TextBlock Text="IP:" Margin="8" />
+                <TextBox Height="25" Width="Auto" Name="Address" />
+            </DockPanel>
 
-            <Viewbox Grid.Row="1">
+            <Viewbox Grid.Row="2" Margin="16">
                 <StackPanel Orientation="Horizontal">
-                    <Button Click="ConnectButton_onClick">Connect</Button>
-                    <Button Click="DisconnectButton_onClick">Disconnect</Button>
+                    <Button Click="ConnectButton_onClick" Margin="2">Connect</Button>
+                    <Button Click="DisconnectButton_onClick" Margin="2">Disconnect</Button>
                 </StackPanel>
             </Viewbox>
         </Grid>
