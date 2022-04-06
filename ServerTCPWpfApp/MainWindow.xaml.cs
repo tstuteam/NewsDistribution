@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using NewsDistribution;
+using NewsDistribution.Server;
 
 namespace ServerTCPWpfApp;
 
@@ -15,8 +16,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        _server.OnClientAuthenticated += _ => UpdateClientList();
-        _server.OnClientUnsubscribed += _ => UpdateClientList();
+        _server.OnClientSubscribes += _ => UpdateClientList();
+        _server.OnClientUnsubscribes += _ => UpdateClientList();
     }
 
     ~MainWindow()
@@ -42,7 +43,9 @@ public partial class MainWindow : Window
 
     private void enableButton_Click(object sender, RoutedEventArgs e)
     {
-        StatusLabel.Content = _server.Start(Port) ? "Server started, waiting for connections." : "Failed to start the server.";
+        StatusLabel.Content = _server.Start(Port)
+            ? "Server started, waiting for connections."
+            : "Failed to start the server.";
     }
 
     private void disableButton_Click(object sender, RoutedEventArgs e)

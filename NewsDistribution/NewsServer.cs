@@ -2,94 +2,161 @@
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
+using NewsDistribution.Shared;
 
-namespace NewsDistribution;
+namespace NewsDistribution.Server;
+
 
 /// <summary>
 ///     Network client implementation.
 /// </summary>
-public class NetworkClient
+public class NetworkClient : IDisposable
 {
     /// <summary>
-    ///     Read-write buffer.
+    ///     Size of the receive buffer.
     /// </summary>
-    public readonly byte[] Buffer = new byte[1024];
+    public const int BufferSize = 1024;
+
 
     /// <summary>
-    ///     Client name.
+    ///     TCP connection client.
     /// </summary>
-    public readonly string Name;
+    public readonly TcpClient TcpClient;
+
 
     /// <summary>
-    ///     Client socket.
+    ///     Network stream for <see cref="TcpClient"/>.
     /// </summary>
-    public readonly Socket Socket;
+    public readonly NetworkStream Stream;
 
     /// <summary>
-    ///     Initializes a NetworkClient instance.
+    ///     Packet reader.
     /// </summary>
-    /// <param name="socket">Client socket.</param>
-    /// <param name="name">Client name.</param>
-    public NetworkClient(Socket socket, string name)
+    public readonly PacketReader Reader;
+
+    /// <summary>
+    ///     Packet writer.
+    /// </summary>
+    public readonly PacketWriter Writer;
+
+    /// <summary>
+    ///     Received data.
+    /// </summary>
+    public readonly MemoryStream Data;
+
+
+    /// <summary>
+    ///     Receive buffer.
+    /// </summary>
+    public readonly byte[] PacketBuffer = new byte[BufferSize];
+
+    /// <summary>
+    ///     Was the packet header fully read?
+    /// </summary>
+    public bool PacketHeaderRead;
+
+    /// <summary>
+    ///     Packet type of the last packet.
+    /// </summary>
+    public PacketType PacketType;
+
+    /// <summary>
+    ///     Packet data size of the last packet.
+    /// </summary>
+    public int PacketSize;
+
+
+    /// <summary>
+    ///     Client's name.
+    /// </summary>
+    public string? Name;
+
+    /// <summary>
+    ///     Is the client subscribed?
+    /// </summary>
+    public bool Subscribed;
+
+
+    /// <summary>
+    ///     Initializes the NetworkClient instance.
+    /// </summary>
+    /// <param name="tcpClient">TcpClient of the client.</param>
+    public NetworkClient(TcpClient tcpClient)
     {
-        Socket = socket;
-        Name = name;
+        TcpClient = tcpClient;
+        Stream = tcpClient.GetStream();
+        Data = new MemoryStream();
+        Reader = new PacketReader(Data);
+        Writer = new PacketWriter();
+    }
+
+    public void Dispose()
+    {
+        TcpClient.Close();
+        Data.Close();
+        Reader.Close();
+        Writer.Close();
+
+        GC.SuppressFinalize(this);
     }
 }
 
 /// <summary>
-///     TCP news server implemenation.
+///     TCP news servre implementation.
 /// </summary>
 public class NewsServer
 {
     /// <summary>
-    ///     Delegate for OnClientAuthenticated.
+    ///     Size of the packet header.
     /// </summary>
-    /// <param name="name">Client name.</param>
-    public delegate void ClientAuthenticated(string name);
-
-    /// <summary>
-    ///     Delegate for OnClientUnsubscribed.
-    /// </summary>
-    /// <param name="name">Client name.</param>
-    public delegate void ClientUnsubscribed(string name);
-
-    /// <summary>
-    ///     Dictionary of clients.
-    /// </summary>
-    private readonly Dictionary<string, NetworkClient> _clients = new();
-
-    /// <summary>
-    ///     Thread cancellation token source.
-    /// </summary>
-    private CancellationTokenSource? _acceptClientsToken;
-
-    /// <summary>
-    ///     Thread for processing incoming connections.
-    /// </summary>
-    private Thread? _acceptThread;
-
-    /// <summary>
-    ///     Listening socket.
-    /// </summary>
-    private Socket? _listener;
+    private const int PacketHeaderSize = sizeof(byte) + sizeof(int);
 
 
     /// <summary>
-    ///     List of client names.
+    ///     TCP connection listener.
     /// </summary>
-    public IEnumerable<string> Clients => _clients.Keys.ToList();
+    private TcpListener? _listener;
+
+    /// <summary>
+    ///     Dictionary of all subscribed clients.
+    /// </summary>
+    private Dictionary<string, NetworkClient>? _clients;
 
 
     /// <summary>
-    ///     Invoked when a client successfully authenticates.
+    ///     Packet writer.
     /// </summary>
-    public event ClientAuthenticated? OnClientAuthenticated;
+    public PacketWriter? _writer;
+
 
     /// <summary>
-    ///     Invoked when a client disconnects.
+    ///     Delegate for <see cref="OnClientSubscribes"/>.
     /// </summary>
-    public event ClientUnsubscribed? OnClientUnsubscribed;
+    /// <param name="name">Client's name.</param>
+    public delegate void SubscribeEvent(string name);
+
+    /// <summary>
+    ///     Delegate for <see cref="OnClientUnsubscribes"/>.
+    /// </summary>
+    /// <param name="name">Client's name.</param>
+    public delegate void UnsubscribeEvent(string name);
+
+
+    /// <summary>
+    ///     Invoked when a client subscribes.
+    /// </summary>
+    public event SubscribeEvent? OnClientSubscribes;
+
+    /// <summary>
+    ///     Invoked when a client unsubscribes.
+    /// </summary>
+    public event UnsubscribeEvent? OnClientUnsubscribes;
+
+
+    /// <summary>
+    ///     List of all client names.
+    /// </summary>
+    public string[]? Clients => _clients?.Keys.ToArray();
 
 
     /// <summary>
@@ -102,25 +169,25 @@ public class NewsServer
         if (_listener != null)
             return false;
 
+        var endpoint = new IPEndPoint(IPAddress.Any, port);
+
         try
         {
-            _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _listener.Bind(new IPEndPoint(IPAddress.Any, port));
-            _listener.Listen();
-
-            _acceptClientsToken = new CancellationTokenSource();
-
-            _acceptThread = new Thread(AcceptThreadProc);
-            _acceptThread.Start();
-
-            return true;
+            _listener = new TcpListener(endpoint);
+            _listener.Start();
+            _listener.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClient), null);
         }
         catch (SocketException)
         {
-            _listener = null;
             return false;
         }
+
+        _clients = new Dictionary<string, NetworkClient>();
+        _writer = new PacketWriter();
+
+        return true;
     }
+
 
     /// <summary>
     ///     Disconnects all clients and shuts down the server.
@@ -130,223 +197,258 @@ public class NewsServer
         if (_listener == null)
             return;
 
-        _acceptClientsToken!.Cancel();
-
-        foreach (var client in _clients.Values)
-            SendUnsubscribePacket(client);
-
-        _clients.Clear();
-
-        try
-        {
-            _listener.Shutdown(SocketShutdown.Both);
-        }
-        catch (SocketException)
-        {
-        }
-
-        _listener.Close();
+        _listener.Stop();
         _listener = null;
     }
 
+
     /// <summary>
-    ///     Processes incoming connections.
+    ///     Sends news to the connected clients.
     /// </summary>
-    private async void AcceptThreadProc()
+    /// <param name="news">News.</param>
+    public void SendNews(News news)
     {
-        ArgumentNullException.ThrowIfNull(_listener, nameof(_listener));
-        ArgumentNullException.ThrowIfNull(_acceptClientsToken, nameof(_acceptClientsToken));
+        _writer!.Start(PacketType.News);
+        _writer.Write(news.Title);
+        _writer.Write(news.Description);
+        _writer.Write(news.Content);
 
-        while (true)
-            try
-            {
-                var clientSocket = await _listener.AcceptAsync(_acceptClientsToken.Token);
+        var data = _writer!.End();
 
-                NetworkStream clientStream = new(clientSocket);
-
-                var client = AuthenticateClient(clientSocket);
-
-                clientStream.WriteByte(client != null ? (byte) 1 : (byte) 0);
-                clientStream.Flush();
-
-                if (client == null) continue;
-                Thread clientThread = new(ClientThreadProc);
-                clientThread.Start(client);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
+        lock (_clients!)
+        {
+            foreach (NetworkClient client in _clients.Values)
+                client.Stream.BeginWrite(data, 0, data.Length, new AsyncCallback(DoBeginWrite), client);
+        }
     }
 
+
     /// <summary>
-    ///     Processes client packets.
+    ///     Accepts connections.
     /// </summary>
-    /// <param name="networkClient">NetworkClient object.</param>
-    private void ClientThreadProc(object? networkClient)
+    /// <param name="asyncResult">Async result.</param>
+    private void DoAcceptTcpClient(IAsyncResult asyncResult)
     {
-        var client = (NetworkClient) networkClient!;
-        client.Socket.ReceiveTimeout = -1;
+        if (_listener is null)
+            return;
 
-        var run = true;
+        var client = new NetworkClient(_listener!.EndAcceptTcpClient(asyncResult));
 
-        while (run)
+        _listener.BeginAcceptTcpClient(new AsyncCallback(DoAcceptTcpClient), null);
+        client.Stream.BeginRead(client.PacketBuffer, 0, NetworkClient.BufferSize, new AsyncCallback(DoBeginRead), client);
+    }
+
+
+    /// <summary>
+    ///     Reads incoming data.
+    /// </summary>
+    /// <param name="asyncResult">Async result.</param>
+    private void DoBeginRead(IAsyncResult asyncResult)
+    {
+        var client = (NetworkClient)asyncResult.AsyncState!;
+        int bytesRead;
+
+        try
         {
-            try
+            bytesRead = client.Stream.EndRead(asyncResult);
+        }
+        catch (Exception ex)
+        when (ex is IOException || ex is ObjectDisposedException)
+        {
+            UnsubscribeClient(client, false);
+            return;
+        }
+
+        var dataOffset = 0;
+
+        if (bytesRead <= 0)
+        {
+            // The remote host shut down the socket connection.
+            UnsubscribeClient(client, false);
+            return;
+        }
+
+        while (bytesRead > 0)
+        {
+            if (!client.PacketHeaderRead)
             {
-                client.Socket.Receive(client.Buffer, 1, SocketFlags.None);
-            }
-            catch (SocketException)
-            {
-                if (!client.Socket.Connected)
+                var needToRead = Math.Min(bytesRead, PacketHeaderSize - (int)client.Data.Length);
+
+                client.Data.Write(client.PacketBuffer, 0, needToRead);
+
+                dataOffset += needToRead;
+                bytesRead -= needToRead;
+
+                if (client.Data.Length == PacketHeaderSize)
                 {
-                    UnsubscribeClient(client);
+                    client.PacketHeaderRead = true;
+                    client.Data.Position = 0;
+
+                    client.PacketType = (PacketType)client.Reader.ReadByte();
+                    client.PacketSize = client.Reader.ReadInt32();
+
+                    client.Data.Position = 0;
+                    client.Data.SetLength(0);
+
+                    if (client.PacketSize > 0xFFFF)
+                    {
+                        UnsubscribeClient(client, true);
+                        return;
+                    }
+                }
+                else
+                {
+                    client.Stream.BeginRead(client.PacketBuffer, 0, NetworkClient.BufferSize, new AsyncCallback(DoBeginRead), client);
                     return;
                 }
             }
 
-            var packetType = (PacketType) client.Buffer[0];
-
-            if (packetType != PacketType.Unsubscribe) continue;
-            UnsubscribeClient(client);
-            run = false;
-        }
-    }
-
-    /// <summary>
-    ///     Authenticates the client.
-    /// </summary>
-    /// <param name="socket">Client socket.</param>
-    /// <returns>Created NetworkClient or <c>null</c>.</returns>
-    private NetworkClient? AuthenticateClient(Socket socket)
-    {
-        var buffer = new byte[256];
-
-        socket.ReceiveTimeout = 5000;
-
-        if (!TryReceive(socket, buffer, 1))
-            return null;
-
-        int nameLength = buffer[0];
-
-        if (nameLength == 0 || !TryReceive(socket, buffer, nameLength))
-            return null;
-
-        string name;
-
-        try
-        {
-            name = Encoding.UTF8.GetString(buffer.AsSpan(0, nameLength));
-        }
-        catch (ArgumentException)
-        {
-            return null;
-        }
-
-        name = Regex.Replace(name, @"[\x00-\x19]+", "").Trim();
-
-        if (name == string.Empty)
-            return null;
-
-        NetworkClient client = new(socket, name);
-
-        try
-        {
-            _clients.Add(name, client);
-        }
-        catch (ArgumentException)
-        {
-            return null;
-        }
-
-        OnClientAuthenticated?.Invoke(name);
-
-        return client;
-    }
-
-    /// <summary>
-    ///     Unsubscribes the client.
-    /// </summary>
-    /// <param name="client">Client object.</param>
-    /// <param name="removeFromTable">Should the client be removed from the table?</param>
-    private void UnsubscribeClient(NetworkClient client, bool removeFromTable = true)
-    {
-        if (removeFromTable)
-            _clients.Remove(client.Name);
-
-        client.Socket.Close();
-
-        OnClientUnsubscribed?.Invoke(client.Name);
-    }
-
-    /// <summary>
-    ///     Sends the <c>Unsubscribe</c> packet to the client.
-    /// </summary>
-    /// <param name="client">Client object.</param>
-    /// <param name="removeFromTable">Should the client be removed from the table?</param>
-    private void SendUnsubscribePacket(NetworkClient client, bool removeFromTable = true)
-    {
-        client.Buffer[0] = (byte) PacketType.Unsubscribe;
-        client.Socket.Send(client.Buffer, 1, SocketFlags.None);
-
-        UnsubscribeClient(client, removeFromTable);
-    }
-
-    /// <summary>
-    ///     Sends the <c>News</c> packet to the client.
-    /// </summary>
-    /// <param name="client">Client object.</param>
-    /// <param name="news">News to send.</param>
-    private static void SendNewsPacket(NetworkClient client, News news)
-    {
-        NetworkStream stream = new(client.Socket);
-        BinaryWriter writer = new(stream);
-
-        writer.Write((byte) PacketType.News);
-        var (title, description, content) = news;
-        writer.Write(title);
-        writer.Write(description);
-        writer.Write(content);
-    }
-
-    /// <summary>
-    ///     Sends news to each client.
-    /// </summary>
-    /// <param name="news">News to send.</param>
-    public void SendNews(News news)
-    {
-        foreach (var client in _clients.Values)
-            SendNewsPacket(client, news);
-    }
-
-    /// <summary>
-    ///     Tries to receive <paramref name="size" /> bytes from
-    ///     the socket and writes the received data to
-    ///     <paramref name="buffer" />.
-    /// </summary>
-    /// <param name="socket">Socket to read from.</param>
-    /// <param name="buffer">Buffer to write to.</param>
-    /// <param name="size">Size of the received data.</param>
-    /// <returns><c>true</c> if successful, <c>false</c> on time-out.</returns>
-    private static bool TryReceive(Socket socket, byte[] buffer, int size)
-    {
-        var offset = 0;
-
-        try
-        {
-            while (size > 0)
+            if (client.Data.Length + bytesRead >= client.PacketSize)
             {
-                var received = socket.Receive(buffer, offset, size, SocketFlags.None);
-                offset += received;
-                size -= received;
+                // Happens for empty packets like Unsubscribe.
+                if (bytesRead != 0)
+                {
+                    var needToRead = client.PacketSize - (int)client.Data.Length;
+                    client.Data.Write(client.PacketBuffer, dataOffset, needToRead);
+
+                    dataOffset += needToRead;
+                    bytesRead -= needToRead;
+                }
+
+                client.Data.Position = 0;
+
+                ProcessIncomingPacket(client);
+
+                if (!client.Subscribed)
+                    return;
+
+                client.Data.Position = 0;
+                client.Data.SetLength(0);
+
+                client.PacketHeaderRead = false;
+
+                if (bytesRead == 0)
+                    client.Stream.BeginRead(client.PacketBuffer, 0, NetworkClient.BufferSize, new AsyncCallback(DoBeginRead), client);
+            }
+            else
+            {
+                client.Data.Write(client.PacketBuffer, dataOffset, bytesRead);
+                client.Stream.BeginRead(client.PacketBuffer, 0, NetworkClient.BufferSize, new AsyncCallback(DoBeginRead), client);
             }
         }
-        catch (SocketException)
+    }
+
+
+    /// <summary>
+    ///     Writes to the connected client.
+    /// </summary>
+    /// <param name="asyncResult">Async result.</param>
+    private void DoBeginWrite(IAsyncResult asyncResult)
+    {
+        var client = (NetworkClient)asyncResult.AsyncState!;
+        var shouldDispose = !client.Subscribed;
+
+        Console.WriteLine(client.Subscribed);
+
+        try
         {
-            // Time-out.
-            return false;
+            client.Stream.EndWrite(asyncResult);
+        }
+        catch (IOException)
+        {
+            shouldDispose = true;
         }
 
-        return true;
+        if (shouldDispose)
+            UnsubscribeClient(client, false);
+    }
+
+
+    /// <summary>
+    ///     Processes the last incoming packet from <paramref name="client"/>.
+    /// </summary>
+    /// <param name="client">The client.</param>
+    private void ProcessIncomingPacket(NetworkClient client)
+    {
+        Console.WriteLine("Received packet {0}: {1} bytes", client.PacketType, client.PacketSize);
+
+        try
+        {
+            if (!client.Subscribed)
+            {
+                if (client.PacketType != PacketType.Subscribe)
+                    return;
+
+                var name = client.Reader.ReadString(256);
+
+                name = Regex.Replace(name, @"[\x00-\x19]+", "").Trim();
+
+                if (name != string.Empty)
+                {
+                    lock (_clients!)
+                    {
+                        client.Subscribed = _clients.TryAdd(name, client);
+                    }
+                }
+
+                client.Writer.Start(PacketType.Subscribe);
+                client.Writer.Write(client.Subscribed);
+                var buffer = client.Writer.End();
+
+                client.Stream.BeginWrite(buffer, 0, buffer.Length, new AsyncCallback(DoBeginWrite), client);
+
+                if (client.Subscribed)
+                {
+                    client.Name = name;
+                    OnClientSubscribes?.Invoke(name);
+                }
+
+                return;
+            }
+
+            switch (client.PacketType)
+            {
+                case PacketType.Unsubscribe:
+                    UnsubscribeClient(client, false);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        when (ex is EndOfStreamException || ex is DecoderFallbackException)
+        {
+            Console.WriteLine("Failed to read packet.\n{0}\n", ex.Message);
+        }
+    }
+
+
+    /// <summary>
+    ///     Unsubscribes <paramref name="client"/>.
+    /// </summary>
+    /// <param name="client">The client.</param>
+    /// <param name="sendPacket">Should the packet be sent?</param>
+    private void UnsubscribeClient(NetworkClient client, bool sendPacket = true)
+    {
+        if (sendPacket)
+        {
+            client.Writer.Start(PacketType.Unsubscribe);
+            var data = client.Writer.End();
+
+            client.Stream.BeginWrite(data, 0, data.Length, new AsyncCallback(DoBeginWrite), client);
+        }
+
+        if (client.Name is not null)
+        {
+            lock (_clients!)
+            {
+                _clients.Remove(client.Name);
+            }
+        }
+
+        client.Dispose();
+
+        if (!sendPacket && client.Subscribed)
+            OnClientUnsubscribes?.Invoke(client.Name!);
+
+        client.Subscribed = false;
     }
 }
