@@ -12,24 +12,22 @@ public partial class MainWindow : Window
     private const int Port = 8910;
     private readonly NewsServer _server = new();
 
+    public ObservableHashSet<string> Clients { get; } = new();
+
     public MainWindow()
     {
         InitializeComponent();
 
-        _server.OnClientSubscribes += _ => UpdateClientList();
-        _server.OnClientUnsubscribes += _ => UpdateClientList();
+        _server.OnClientSubscribes += name =>
+            Dispatcher.Invoke(() => Clients.Add(name));
+
+        _server.OnClientUnsubscribes += name =>
+            Dispatcher.Invoke(() => Clients.Remove(name));
     }
 
     ~MainWindow()
     {
         _server.Shutdown();
-    }
-
-    private void UpdateClientList()
-    {
-        Dispatcher.Invoke(() =>
-            ClientsListBox.ItemsSource = _server.Clients
-        );
     }
 
     private void sendButton_Click(object sender, RoutedEventArgs e)

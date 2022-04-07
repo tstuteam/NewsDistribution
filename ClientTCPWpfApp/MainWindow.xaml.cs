@@ -1,5 +1,6 @@
-﻿using System.Windows;
-using NewsDistribution;
+﻿using System;
+using System.Windows;
+using System.Diagnostics;
 using NewsDistribution.Client;
 
 namespace ClientTCPWpfApp;
@@ -15,6 +16,12 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        _client.OnSubscribeAttempt += status =>
+            Trace.WriteLine($"Subscribe attempt: {status}.");
+
+        _client.OnUnsubscribe += () =>
+            Trace.WriteLine("Disconnected.");
 
         _client.OnNewsReceived += news =>
         {

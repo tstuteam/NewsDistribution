@@ -42,7 +42,8 @@
             <TextBlock FontWeight="Bold" TextDecorations="Underline" Text="List of clients" Grid.Row="0" />
 
             <ListBox Name="ClientsListBox"
-                     Grid.Row="1" />
+                     Grid.Row="1"
+                     ItemsSource="{Binding Clients}" />
 
             <Label Grid.Row="2" Name="StatusLabel" />
 

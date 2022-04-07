@@ -91,12 +91,12 @@ public class NewsClient
     public delegate void SubscribeAttempt(ConnectStatus status);
 
     /// <summary>
-    ///     Delegate for <see cref="OnDisconnect"/>.
+    ///     Delegate for <see cref="OnUnsubscribe"/>.
     /// </summary>
-    public delegate void DisconnectEvent();
+    public delegate void UnsubscribeEvent();
 
     /// <summary>
-    ///     Delegate for <see cref="OnDisconnect"/>.
+    ///     Delegate for <see cref="OnNewsReceived"/>.
     /// </summary>
     /// <param name="news">News.</param>
     public delegate void NewsReceived(News news);
@@ -108,9 +108,9 @@ public class NewsClient
     public event SubscribeAttempt? OnSubscribeAttempt;
 
     /// <summary>
-    ///     Invoked on disconnect.
+    ///     Invoked when unsubscribed.
     /// </summary>
-    public event DisconnectEvent? OnDisconnect;
+    public event UnsubscribeEvent? OnUnsubscribe;
 
     /// <summary>
     ///     Invoked when receiving news.
@@ -179,7 +179,7 @@ public class NewsClient
 
             _subscribed = false;
 
-            OnDisconnect?.Invoke();
+            OnUnsubscribe?.Invoke();
         }
     }
 

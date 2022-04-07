@@ -197,6 +197,12 @@ public class NewsServer
         if (_listener == null)
             return;
 
+        lock (_clients!)
+        {
+            foreach (NetworkClient client in _clients.Values)
+                UnsubscribeClient(client);
+        }
+
         _listener.Stop();
         _listener = null;
     }
@@ -255,7 +261,7 @@ public class NewsServer
         catch (Exception ex)
         when (ex is IOException || ex is ObjectDisposedException)
         {
-            UnsubscribeClient(client, false);
+            RemoveClient(client);
             return;
         }
 
@@ -264,7 +270,7 @@ public class NewsServer
         if (bytesRead <= 0)
         {
             // The remote host shut down the socket connection.
-            UnsubscribeClient(client, false);
+            RemoveClient(client);
             return;
         }
 
@@ -292,7 +298,7 @@ public class NewsServer
 
                     if (client.PacketSize > 0xFFFF)
                     {
-                        UnsubscribeClient(client, true);
+                        UnsubscribeClient(client);
                         return;
                     }
                 }
@@ -348,7 +354,22 @@ public class NewsServer
         var client = (NetworkClient)asyncResult.AsyncState!;
         var shouldDispose = !client.Subscribed;
 
-        Console.WriteLine(client.Subscribed);
+        try
+        {
+            client.Stream.EndWrite(asyncResult);
+        }
+        catch (IOException)
+        {client.Dispose();
+            shouldDispose = true;
+        }
+
+        if (shouldDispose)
+            RemoveClient(client);
+    }
+
+    private void DoBeginWriteUnsubscribe(IAsyncResult asyncResult)
+    {
+        var client = (NetworkClient)asyncResult.AsyncState!;
 
         try
         {
@@ -356,13 +377,10 @@ public class NewsServer
         }
         catch (IOException)
         {
-            shouldDispose = true;
         }
 
-        if (shouldDispose)
-            UnsubscribeClient(client, false);
+        RemoveClient(client);
     }
-
 
     /// <summary>
     ///     Processes the last incoming packet from <paramref name="client"/>.
@@ -409,7 +427,7 @@ public class NewsServer
             switch (client.PacketType)
             {
                 case PacketType.Unsubscribe:
-                    UnsubscribeClient(client, false);
+                    RemoveClient(client);
                     break;
             }
         }
@@ -426,29 +444,33 @@ public class NewsServer
     /// </summary>
     /// <param name="client">The client.</param>
     /// <param name="sendPacket">Should the packet be sent?</param>
-    private void UnsubscribeClient(NetworkClient client, bool sendPacket = true)
+    private void UnsubscribeClient(NetworkClient client)
     {
-        if (sendPacket)
-        {
-            client.Writer.Start(PacketType.Unsubscribe);
-            var data = client.Writer.End();
+        client.Writer.Start(PacketType.Unsubscribe);
+        var data = client.Writer.End();
 
-            client.Stream.BeginWrite(data, 0, data.Length, new AsyncCallback(DoBeginWrite), client);
-        }
+        client.Stream.BeginWrite(data, 0, data.Length, new AsyncCallback(DoBeginWriteUnsubscribe), client);
+    }
 
-        if (client.Name is not null)
+
+    /// <summary>
+    ///     Removes the client from the client list.
+    /// </summary>
+    /// <param name="client">The client.</param>
+    private void RemoveClient(NetworkClient client)
+    {
+        if (client.Subscribed)
         {
+            client.Subscribed = false;
+
+            OnClientUnsubscribes?.Invoke(client.Name!);
+
             lock (_clients!)
             {
-                _clients.Remove(client.Name);
+                _clients.Remove(client.Name!);
             }
         }
 
         client.Dispose();
-
-        if (!sendPacket && client.Subscribed)
-            OnClientUnsubscribes?.Invoke(client.Name!);
-
-        client.Subscribed = false;
     }
 }
