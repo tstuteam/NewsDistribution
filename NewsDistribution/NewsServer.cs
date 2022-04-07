@@ -78,7 +78,7 @@ public class NetworkClient : IDisposable
 
 
     /// <summary>
-    ///     Initializes the NetworkClient instance.
+    ///     Initializes a NetworkClient instance.
     /// </summary>
     /// <param name="tcpClient">TcpClient of the client.</param>
     public NetworkClient(TcpClient tcpClient)
@@ -102,7 +102,7 @@ public class NetworkClient : IDisposable
 }
 
 /// <summary>
-///     TCP news servre implementation.
+///     TCP news server implementation.
 /// </summary>
 public class NewsServer
 {

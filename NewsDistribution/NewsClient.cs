@@ -153,7 +153,6 @@ public class NewsClient
     ///     Unsubscribes from the news server.
     /// </summary>
     /// <param name="sendPacket">Should the server be informed?</param>
-    /// <exception cref="InvalidOperationException">The client is not connected to a server.</exception>
     public void Unsubscribe(bool sendPacket = true)
     {
         if (_tcpClient is null)

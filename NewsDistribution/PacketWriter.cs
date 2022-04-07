@@ -32,7 +32,7 @@ public class PacketWriter : BinaryWriter
     /// <summary>
     ///     Returns the packet data and resets the internal buffer.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>Packet data.</returns>
     public byte[] End()
     {
         var size = BaseStream.Length;
