@@ -1,5 +1,6 @@
 ﻿using System.Windows;
-using NewsDistribution;
+using System.Diagnostics;
+using NewsDistribution.Client;
 
 namespace ClientTCPWpfApp;
 
@@ -14,11 +15,26 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        _client.OnSubscribeAttempt += status =>
+            Trace.WriteLine($"Subscribe attempt: {status}.");
+
+        _client.OnUnsubscribe += () =>
+            Trace.WriteLine("Disconnected.");
+
+        _client.OnNewsReceived += news =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                var (title, description, content) = news;
+                NewsTextBlock.Text += $"\t{title}\n{description}\n{content}\n\n";
+            });
+        };
     }
 
     ~MainWindow()
     {
-        _client.Disconnect();
+        _client.Unsubscribe();
     }
 
     private void ConnectButton_onClick(object sender, RoutedEventArgs e)
@@ -28,21 +44,11 @@ public partial class MainWindow : Window
         if (name.Length == 0)
             return;
 
-        _client.Connect(name, Address.Text, Port);
-
-        _client.OnNewsReceived += news =>
-        {
-            Dispatcher.Invoke(() =>
-                {
-                    var (title, description, content) = news;
-                    NewsTextBlock.Text += $"\t{title}\n{description}\n{content}\n\n";
-                }
-            );
-        };
+        _client.Subscribe(Address.Text, Port, name);
     }
 
     private void DisconnectButton_onClick(object sender, RoutedEventArgs e)
     {
-        _client.Disconnect();
+        _client.Unsubscribe();
     }
 }

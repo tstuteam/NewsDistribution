@@ -1,7 +1,18 @@
 ﻿using System.Net.Sockets;
 using System.Text;
+using NewsDistribution.Shared;
 
-namespace NewsDistribution;
+namespace NewsDistribution.Client;
+
+
+public enum ConnectStatus
+{
+    Success,
+    AlreadyConnected,
+    UnableToConnect,
+    Rejected
+}
+
 
 /// <summary>
 ///     TCP news client implementation.
@@ -9,205 +20,406 @@ namespace NewsDistribution;
 public class NewsClient
 {
     /// <summary>
-    ///     Delegate for OnNewsReceived.
+    ///     Size of the receive buffer.
     /// </summary>
-    /// <param name="news">Received news.</param>
-    public delegate void NewsReceived(News news);
+    private const int BufferSize = 1024;
 
     /// <summary>
-    ///     Read-write buffer.
+    ///     Size of the packet header.
     /// </summary>
-    private readonly byte[] _buffer = new byte[2048];
+    private const int PacketHeaderSize = sizeof(byte) + sizeof(int);
 
 
     /// <summary>
-    ///     Thread cancellation token source.
+    ///     TCP connection client.
     /// </summary>
-    private CancellationTokenSource? _disconnectToken;
+    private TcpClient? _tcpClient;
+
 
     /// <summary>
-    ///     Connection socket stream reader.
-    /// </summary>
-    private BinaryReader? _reader;
-
-    /// <summary>
-    ///     Thread for processing incoming packets.
-    /// </summary>
-    private Thread? _receiveThread;
-
-    /// <summary>
-    ///     Connection socket.
-    /// </summary>
-    private Socket? _socket;
-
-    /// <summary>
-    ///     Connection socket stream.
+    ///     Network stream for <see cref="_tcpClient"/>.
     /// </summary>
     private NetworkStream? _stream;
 
     /// <summary>
-    ///     Invoked when the server sends news.
+    ///     Packet reader.
+    /// </summary>
+    private PacketReader? _reader;
+
+    /// <summary>
+    ///     Packet writer.
+    /// </summary>
+    private PacketWriter? _writer;
+
+    /// <summary>
+    ///     Received data.
+    /// </summary>
+    private MemoryStream? _data;
+
+
+    /// <summary>
+    ///     Receive buffer.
+    /// </summary>
+    private readonly byte[] _packetBuffer = new byte[BufferSize];
+
+    /// <summary>
+    ///     Was the packet header fully read?
+    /// </summary>
+    private bool _packetHeaderRead;
+
+    /// <summary>
+    ///     Packet type of the last packet.
+    /// </summary>
+    private PacketType _packetType;
+
+    /// <summary>
+    ///     Packet data size of the last packet.
+    /// </summary>
+    private int _packetSize;
+
+
+    /// <summary>
+    ///     Is the client subscribed?
+    /// </summary>
+    private bool _subscribed = false;
+
+
+    /// <summary>
+    ///     Delegate for <see cref="OnSubscribeAttempt"/>.
+    /// </summary>
+    /// <param name="status">Connection status.</param>
+    public delegate void SubscribeAttempt(ConnectStatus status);
+
+    /// <summary>
+    ///     Delegate for <see cref="OnUnsubscribe"/>.
+    /// </summary>
+    public delegate void UnsubscribeEvent();
+
+    /// <summary>
+    ///     Delegate for <see cref="OnNewsReceived"/>.
+    /// </summary>
+    /// <param name="news">News.</param>
+    public delegate void NewsReceived(News news);
+
+
+    /// <summary>
+    ///     Invoked on a subscribe attempt.
+    /// </summary>
+    public event SubscribeAttempt? OnSubscribeAttempt;
+
+    /// <summary>
+    ///     Invoked when unsubscribed.
+    /// </summary>
+    public event UnsubscribeEvent? OnUnsubscribe;
+
+    /// <summary>
+    ///     Invoked when receiving news.
     /// </summary>
     public event NewsReceived? OnNewsReceived;
 
+
     /// <summary>
-    ///     Attempts to connect to a server.
+    ///     Subscribes to the news server.
     /// </summary>
-    /// <param name="name">Client name.</param>
     /// <param name="address">Server address.</param>
     /// <param name="port">Server port.</param>
-    /// <returns><c>true</c> if connected.</returns>
-    /// <exception cref="ArgumentException">Name is either empty or too long (>256).</exception>
-    public bool Connect(string name, string address, ushort port)
+    /// <param name="name">Client's name.</param>
+    public void Subscribe(string address, ushort port, string name)
     {
-        if (name == string.Empty || name.Length > 256)
-            throw new ArgumentException("Name is either empty or too long (>256).", nameof(name));
+        if (_tcpClient != null)
+        {
+            OnSubscribeAttempt?.Invoke(ConnectStatus.AlreadyConnected);
+            return;
+        }
 
-        if (_socket != null)
-            return false;
+        _tcpClient = new TcpClient();
 
         try
         {
-            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _socket.Connect(address, port);
+            _tcpClient.BeginConnect(address, port, new AsyncCallback(DoBeginConnect), name);
         }
         catch (SocketException)
         {
-            _socket?.Dispose();
-            _socket = null;
+            _tcpClient.Close();
+            _tcpClient = null;
 
-            return false;
+            OnSubscribeAttempt?.Invoke(ConnectStatus.UnableToConnect);
+            return;
         }
+    }
 
-        _disconnectToken = new CancellationTokenSource();
 
-        _stream = new NetworkStream(_socket);
-        _reader = new BinaryReader(_stream);
+    /// <summary>
+    ///     Unsubscribes from the news server.
+    /// </summary>
+    /// <param name="sendPacket">Should the server be informed?</param>
+    public void Unsubscribe(bool sendPacket = true)
+    {
+        if (_tcpClient is null)
+            return;
 
-        SendAuthenticationPacket(name);
-        var authenticated = ReceiveAuthenticationPacket();
-
-        if (authenticated)
+        lock (_tcpClient)
         {
-            _receiveThread = new Thread(ReceiveThreadProc);
-            _receiveThread.Start();
-        }
-        else
-        {
-            _stream.Close();
-            _socket.Close();
+            if (!_subscribed)
+                return;
+
+            if (sendPacket)
+                SendUnsubscribePacket();
+
+            _tcpClient?.Close();
+            _reader?.Close();
+            _writer?.Close();
+            _data?.Close();
+
+            _tcpClient = null;
             _stream = null;
-            _socket = null;
-        }
+            _reader = null;
+            _writer = null;
+            _data = null;
 
-        return authenticated;
+            _subscribed = false;
+
+            OnUnsubscribe?.Invoke();
+        }
     }
 
+
     /// <summary>
-    ///     Disconnects the client from the server.
+    ///     Attempts to connect to the server.
     /// </summary>
-    /// <param name="sendPacket">Should the client send the <c>Unsubscribe</c> packet to the server?</param>
-    public void Disconnect(bool sendPacket = true)
+    /// <param name="asyncResult">Async result.</param>
+    private void DoBeginConnect(IAsyncResult asyncResult)
     {
-        if (_socket == null)
-            return;
-
-        _disconnectToken?.Cancel();
-
-        if (sendPacket)
+        try
         {
-            _buffer[0] = (byte) PacketType.Unsubscribe;
-            _socket.Send(_buffer, 1, SocketFlags.None);
+            _tcpClient!.EndConnect(asyncResult);
+        }
+        catch (SocketException)
+        {
+            _tcpClient?.Close();
+            _tcpClient = null;
+            OnSubscribeAttempt?.Invoke(ConnectStatus.UnableToConnect);
+            return;
         }
 
-        _socket.Close();
-        _stream!.Close();
-        _socket = null;
+        _stream = _tcpClient.GetStream();
+        _data = new MemoryStream();
+        _reader = new PacketReader(_data);
+        _writer = new PacketWriter();
+
+        _packetHeaderRead = false;
+
+        _stream!.BeginRead(_packetBuffer, 0, BufferSize, new AsyncCallback(DoBeginRead), null);
+
+        SendSubscribePacket((string)asyncResult.AsyncState!);
+
+        Console.WriteLine("Connected");
     }
 
-    /// <summary>
-    ///     Processes received packets.
-    /// </summary>
-    private async void ReceiveThreadProc()
-    {
-        if (_socket == null || _disconnectToken == null)
-            return;
 
-        var run = true;
+    /// <summary>
+    ///     Reads incoming data.
+    /// </summary>
+    /// <param name="asyncResult">Async result.</param>
+    private void DoBeginRead(IAsyncResult asyncResult)
+    {
+        int bytesRead;
 
         try
         {
-            while (run)
+            if (_stream is null)
             {
-                await _socket.ReceiveAsync(_buffer.AsMemory(0, 1), SocketFlags.None, _disconnectToken.Token);
+                Unsubscribe(false);
+                return;
+            }
 
-                var packetType = (PacketType) _buffer[0];
-                
-                if (packetType == PacketType.Unsubscribe)
+            bytesRead = _stream!.EndRead(asyncResult);
+        }
+        catch (Exception ex)
+        when (ex is IOException || ex is ObjectDisposedException)
+        {
+            Unsubscribe(false);
+            return;
+        }
+
+        var dataOffset = 0;
+
+        if (bytesRead <= 0)
+        {
+            // The remote host shut down the socket connection.
+            Unsubscribe(false);
+            return;
+        }
+
+        while (bytesRead > 0)
+        {
+            if (!_packetHeaderRead)
+            {
+                var needToRead = Math.Min(bytesRead, PacketHeaderSize - (int)_data!.Length);
+
+                _data!.Write(_packetBuffer, 0, needToRead);
+
+                dataOffset += needToRead;
+                bytesRead -= needToRead;
+
+                if (_data.Length == PacketHeaderSize)
                 {
-                    Disconnect(false);
-                    run = false;
+                    _packetHeaderRead = true;
+                    _data.Position = 0;
+
+                    _packetType = (PacketType)_reader!.ReadByte();
+                    _packetSize = _reader.ReadInt32();
+
+                    _data.Position = 0;
+                    _data.SetLength(0);
                 }
-                else if (packetType == PacketType.News)
+                else
                 {
-                    ReceiveNewsPacket();
+                    _stream.BeginRead(_packetBuffer, 0, BufferSize, new AsyncCallback(DoBeginRead), null);
+                    return;
                 }
             }
+
+            if (_data!.Length + bytesRead >= _packetSize)
+            {
+                // Happens for empty packets like Unsubscribe.
+                if (bytesRead != 0)
+                {
+                    var needToRead = _packetSize - (int)_data.Length;
+                    _data!.Write(_packetBuffer, dataOffset, needToRead);
+
+                    dataOffset += needToRead;
+                    bytesRead -= needToRead;
+                }
+
+                _data.Position = 0;
+
+                ProcessIncomingPacket();
+
+                if (!_subscribed)
+                    return;
+
+                _data.Position = 0;
+                _data.SetLength(0);
+
+                _packetHeaderRead = false;
+
+                if (bytesRead == 0)
+                    _stream.BeginRead(_packetBuffer, 0, BufferSize, new AsyncCallback(DoBeginRead), null);
+            }
+            else
+            {
+                _data.Write(_packetBuffer, dataOffset, bytesRead);
+                _stream.BeginRead(_packetBuffer, 0, BufferSize, new AsyncCallback(DoBeginRead), null);
+                return;
+            }
         }
-        catch (OperationCanceledException)
+    }
+
+
+    /// <summary>
+    ///     Writes outcoming data.
+    /// </summary>
+    /// <param name="asyncResult">Async result.</param>
+    private void DoBeginWrite(IAsyncResult asyncResult)
+    {
+        try
         {
-            Disconnect(false);
+            _stream!.EndWrite(asyncResult);
+        }
+        catch (IOException)
+        {
+            Unsubscribe(false);
         }
     }
 
+
     /// <summary>
-    ///     Sends the authentication packet to the server.
+    ///     Processess the last incoming packet.
     /// </summary>
-    /// <param name="name">Client name.</param>
-    /// <exception cref="InvalidOperationException">Client is not connected.</exception>
-    private void SendAuthenticationPacket(string name)
+    private void ProcessIncomingPacket()
     {
-        if (_socket == null)
-            throw new InvalidOperationException();
+        Console.WriteLine("Received packet {0}: {1} bytes", _packetType, _packetSize);
 
-        var nameBytes = Encoding.UTF8.GetBytes(name);
-        var length = nameBytes.Length;
+        try
+        {
+            if (!_subscribed)
+            {
+                if (_packetType != PacketType.Subscribe)
+                    return;
 
-        if (length > 256)
-            return;
+                _subscribed = _reader!.ReadBoolean();
+                OnSubscribeAttempt?.Invoke(_subscribed ? ConnectStatus.Success : ConnectStatus.Rejected);
 
-        _stream!.WriteByte((byte) length);
-        _stream.Write(nameBytes);
-        _stream.Flush();
+                if (!_subscribed)
+                    Unsubscribe(false);
+
+                return;
+            }
+
+            switch (_packetType)
+            {
+                case PacketType.Unsubscribe:
+                    Unsubscribe(false);
+                    break;
+
+                case PacketType.News:
+                    ReceiveNews();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        when (ex is EndOfStreamException || ex is DecoderFallbackException)
+        {
+            Console.WriteLine("Failed to read packet.\n{0}\n", ex.Message);
+        }
     }
 
+
     /// <summary>
-    ///     Receives the authentication packet from the server.
+    ///     Sends the <see cref="PacketType.Subscribe"/> packet.
     /// </summary>
-    /// <returns><c>true</c> if authenticated.</returns>
+    /// <param name="name">Client's name.</param>
     /// <exception cref="InvalidOperationException">Client is not connected.</exception>
-    private bool ReceiveAuthenticationPacket()
+    private void SendSubscribePacket(string name)
     {
-        if (_socket == null)
+        if (_tcpClient == null)
             throw new InvalidOperationException();
 
-        _socket.Receive(_buffer, 1, SocketFlags.None);
+        _writer!.Start(PacketType.Subscribe);
+        _writer.Write(name);
 
-        return _buffer[0] != 0;
+        var data = _writer.End();
+
+        _stream!.BeginWrite(data, 0, data.Length, new AsyncCallback(DoBeginWrite), null);
     }
 
+
     /// <summary>
-    ///     Received the news packet from the server.
+    ///     Sends the <see cref="PacketType.Unsubscribe"/> packet.
     /// </summary>
     /// <exception cref="InvalidOperationException">Client is not connected.</exception>
-    private void ReceiveNewsPacket()
+    private void SendUnsubscribePacket()
     {
-        if (_socket == null)
+        if (_tcpClient == null)
             throw new InvalidOperationException();
 
+        _writer!.Start(PacketType.Unsubscribe);
+
+        var data = _writer.End();
+
+        _stream!.BeginWrite(data, 0, data.Length, new AsyncCallback(DoBeginWrite), null);
+    }
+
+
+    /// <summary>
+    ///     Reads the incoming news packet.
+    /// </summary>
+    private void ReceiveNews()
+    {
         var title = _reader!.ReadString();
-        var description = _reader.ReadString();
-        var content = _reader.ReadString();
+        var description = _reader!.ReadString();
+        var content = _reader!.ReadString();
 
         OnNewsReceived?.Invoke(new News(title, description, content));
     }
