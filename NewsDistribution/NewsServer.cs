@@ -359,7 +359,7 @@ public class NewsServer
             client.Stream.EndWrite(asyncResult);
         }
         catch (IOException)
-        {client.Dispose();
+        {
             shouldDispose = true;
         }
 
