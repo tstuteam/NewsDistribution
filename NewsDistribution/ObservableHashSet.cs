@@ -149,7 +149,7 @@ public class ObservableHashSet<T> : INotifyCollectionChanged, ISet<T>, ICollecti
         _set.CopyTo((T[])array, index);
     }
 
-    public bool IsSynchronized => true;
+    public bool IsSynchronized => false;
 
     public object SyncRoot => this;
     #endregion
