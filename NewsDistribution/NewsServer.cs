@@ -154,12 +154,6 @@ public class NewsServer
 
 
     /// <summary>
-    ///     List of all client names.
-    /// </summary>
-    public string[]? Clients => _clients?.Keys.ToArray();
-
-
-    /// <summary>
     ///     Starts the server.
     /// </summary>
     /// <param name="port">Server port.</param>
