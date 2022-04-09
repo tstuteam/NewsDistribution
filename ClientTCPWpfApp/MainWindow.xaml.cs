@@ -1,5 +1,7 @@
 ﻿using System.Windows;
 using System.Diagnostics;
+using System.Collections.ObjectModel;
+using NewsDistribution;
 using NewsDistribution.Client;
 
 namespace ClientTCPWpfApp;
@@ -12,24 +14,43 @@ public partial class MainWindow : Window
     private const int Port = 8910;
     private readonly NewsClient _client = new();
 
+    private bool _connecting = false;
+
+    public ObservableCollection<News> News { get; } = new();
+
     public MainWindow()
     {
         InitializeComponent();
 
         _client.OnSubscribeAttempt += status =>
+        {
             Trace.WriteLine($"Subscribe attempt: {status}.");
+            _connecting = false;
+
+            if (status == ConnectStatus.Success)
+            {
+                Dispatcher.Invoke(() => News.Clear());
+                return;
+            }
+
+            var message = status switch
+            {
+                ConnectStatus.UnableToConnect => "Не удалось найти сервер.",
+                ConnectStatus.AlreadyConnected => "Соединение уже установлено.",
+                ConnectStatus.Rejected => "Запрос был отвергнут сервером.",
+                _ => "Неизвестная ошибка."
+            };
+
+            Dispatcher.Invoke(() =>
+                MessageBox.Show(message, "Не удалось подключиться")
+            );
+        };
 
         _client.OnUnsubscribe += () =>
             Trace.WriteLine("Disconnected.");
 
         _client.OnNewsReceived += news =>
-        {
-            Dispatcher.Invoke(() =>
-            {
-                var (title, description, content) = news;
-                NewsTextBlock.Text += $"\t{title}\n{description}\n{content}\n\n";
-            });
-        };
+            Dispatcher.Invoke(() => News.Insert(0, news));
     }
 
     ~MainWindow()
@@ -39,10 +60,18 @@ public partial class MainWindow : Window
 
     private void ConnectButton_onClick(object sender, RoutedEventArgs e)
     {
+        if (_connecting)
+            return;
+
         var name = UserName.Text;
 
         if (name.Length == 0)
+        {
+            MessageBox.Show("Введите имя.", "Не указано значение поля");
             return;
+        };
+
+        _connecting = true;
 
         _client.Subscribe(Address.Text, Port, name);
     }

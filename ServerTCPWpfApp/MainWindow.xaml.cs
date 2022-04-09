@@ -12,6 +12,8 @@ public partial class MainWindow : Window
     private const int Port = 8910;
     private readonly NewsServer _server = new();
 
+    private News? _lastNews;
+
     public ObservableHashSet<string> Clients { get; } = new();
 
     public MainWindow()
@@ -19,7 +21,12 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         _server.OnClientSubscribes += name =>
+        {
             Dispatcher.Invoke(() => Clients.Add(name));
+
+            if (_lastNews is not null)
+                _server.SendNews(_lastNews, new string[] { name });
+        };
 
         _server.OnClientUnsubscribes += name =>
             Dispatcher.Invoke(() => Clients.Remove(name));
@@ -32,11 +39,13 @@ public partial class MainWindow : Window
 
     private void sendButton_Click(object sender, RoutedEventArgs e)
     {
-        _server.SendNews(new News(
+        _lastNews = new News(
             TitleTextBox.Text,
             DescriptionTextBox.Text,
             ContentTextBox.Text
-        ));
+        );
+
+        _server.SendNews(_lastNews, Clients);
     }
 
     private void enableButton_Click(object sender, RoutedEventArgs e)
