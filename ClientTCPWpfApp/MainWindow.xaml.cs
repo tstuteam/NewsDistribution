@@ -80,4 +80,16 @@ public partial class MainWindow : Window
     {
         _client.Unsubscribe();
     }
+
+    private void NewsListItem_Click(object sender, RoutedEventArgs e)
+    {
+        var itemIndex = NewsTextBlock.SelectedIndex;
+
+        if (itemIndex == -1)
+            return;
+
+        var (title, description, content) = News[itemIndex];
+
+        Clipboard.SetText($"{title}\n\n{description}\n\n{content}");
+    }
 }

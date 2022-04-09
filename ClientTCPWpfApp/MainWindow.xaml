@@ -38,6 +38,12 @@
                     </Style>
                 </ListBox.ItemContainerStyle>
 
+                <ListBox.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Скопировать" Click="NewsListItem_Click"/>
+                    </ContextMenu>
+                </ListBox.ContextMenu>
+
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Vertical">
