@@ -7,6 +7,10 @@
         Title="Client" Height="450" Width="800"
         DataContext="{Binding RelativeSource={RelativeSource Self}}">
     <Grid>
+        <Grid.LayoutTransform>
+            <ScaleTransform ScaleX="1.5" ScaleY="1.5" CenterX="0.5" CenterY="0.5"/>
+        </Grid.LayoutTransform>
+        
         <Grid.ColumnDefinitions>
             <ColumnDefinition />
             <ColumnDefinition />
