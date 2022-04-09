@@ -8,6 +8,10 @@
         DataContext="{Binding RelativeSource={RelativeSource Self}}">
 
     <Grid>
+        <Grid.LayoutTransform>
+            <ScaleTransform ScaleX="2.2" ScaleY="2.2" CenterX="0.5" CenterY="0.5"/>
+        </Grid.LayoutTransform>
+        
         <Grid.ColumnDefinitions>
             <ColumnDefinition />
             <ColumnDefinition />
@@ -55,8 +59,8 @@
                 </Grid.ColumnDefinitions>
 
                 <Button Grid.Column="0" Click="sendButton_Click">Send</Button>
-                <Button Grid.Column="1" Click="enableButton_Click">Enable the server</Button>
-                <Button Grid.Column="2" Click="disableButton_Click">Disable the server</Button>
+                <Button Grid.Column="1" Click="enableButton_Click">Start</Button>
+                <Button Grid.Column="2" Click="disableButton_Click">Shutdown</Button>
             </Grid>
         </Grid>
     </Grid>

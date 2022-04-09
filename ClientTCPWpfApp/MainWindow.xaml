@@ -4,15 +4,73 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Client" Height="450" Width="800">
+        Title="Client" Height="450" Width="800"
+        DataContext="{Binding RelativeSource={RelativeSource Self}}">
     <Grid>
+        <Grid.LayoutTransform>
+            <ScaleTransform ScaleX="1.5" ScaleY="1.5" CenterX="0.5" CenterY="0.5"/>
+        </Grid.LayoutTransform>
+        
         <Grid.ColumnDefinitions>
             <ColumnDefinition />
             <ColumnDefinition />
         </Grid.ColumnDefinitions>
 
         <ScrollViewer Grid.Column="0">
-            <TextBlock Name="NewsTextBlock" TextWrapping="Wrap"/>
+            <ListBox Name="NewsTextBlock"
+                     Grid.Column="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     AlternationCount="2"
+                     d:ItemsSource="{d:SampleData ItemCount=5}"
+                     ItemsSource="{Binding News}">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Margin" Value="0,0,0,5"/>
+                        <Setter Property="BorderThickness" Value="1.5"/>
+                        <Setter Property="BorderBrush" Value="Black"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+
+                        <Style.Triggers>
+                            <Trigger Property="ItemsControl.AlternationIndex" Value="0">
+                                <Setter Property="Background" Value="#FFEAEAEC"/>
+                            </Trigger>
+
+                            <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                <Setter Property="Background" Value="#FFD9D9DE"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+
+                <ListBox.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Скопировать" Click="NewsListItem_Click"/>
+                    </ContextMenu>
+                </ListBox.ContextMenu>
+
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Text="{Binding Title}"
+                                       FontSize="20pt"
+                                       FontWeight="Bold"
+                                       HorizontalAlignment="Center"
+                                       TextWrapping="Wrap"/>
+
+                            <TextBlock Text="{Binding Description}"
+                                       FontSize="16pt"
+                                       FontStyle="Italic"
+                                       Margin="0,0,0,14"
+                                       TextWrapping="Wrap"/>
+
+                            <TextBlock Text="{Binding Content}"
+                                       FontSize="14pt"
+                                       TextWrapping="Wrap"
+                                       FontFamily="Times New Roman"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
         </ScrollViewer>
 
         <Grid Grid.Column="1">

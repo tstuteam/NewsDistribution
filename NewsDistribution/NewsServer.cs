@@ -154,12 +154,6 @@ public class NewsServer
 
 
     /// <summary>
-    ///     List of all client names.
-    /// </summary>
-    public string[]? Clients => _clients?.Keys.ToArray();
-
-
-    /// <summary>
     ///     Starts the server.
     /// </summary>
     /// <param name="port">Server port.</param>
@@ -212,7 +206,7 @@ public class NewsServer
     ///     Sends news to the connected clients.
     /// </summary>
     /// <param name="news">News.</param>
-    public void SendNews(News news)
+    public void SendNews(News news, IEnumerable<string> clients)
     {
         _writer!.Start(PacketType.News);
         _writer.Write(news.Title);
@@ -223,8 +217,13 @@ public class NewsServer
 
         lock (_clients!)
         {
-            foreach (NetworkClient client in _clients.Values)
+            foreach (string clientName in clients)
+            {
+                if (!_clients.TryGetValue(clientName, out NetworkClient? client))
+                    continue;
+
                 client.Stream.BeginWrite(data, 0, data.Length, new AsyncCallback(DoBeginWrite), client);
+            }
         }
     }
 

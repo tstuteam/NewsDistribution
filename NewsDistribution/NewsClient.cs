@@ -138,7 +138,8 @@ public class NewsClient
         {
             _tcpClient.BeginConnect(address, port, new AsyncCallback(DoBeginConnect), name);
         }
-        catch (SocketException)
+        catch (Exception ex)
+        when (ex is SocketException || ex is ArgumentException)
         {
             _tcpClient.Close();
             _tcpClient = null;
@@ -160,10 +161,7 @@ public class NewsClient
 
         lock (_tcpClient)
         {
-            if (!_subscribed)
-                return;
-
-            if (sendPacket)
+            if (_subscribed && sendPacket)
                 SendUnsubscribePacket();
 
             _tcpClient?.Close();
@@ -177,9 +175,11 @@ public class NewsClient
             _writer = null;
             _data = null;
 
-            _subscribed = false;
-
-            OnUnsubscribe?.Invoke();
+            if (_subscribed)
+            {
+                _subscribed = false;
+                OnUnsubscribe?.Invoke();
+            }
         }
     }
 
@@ -372,6 +372,7 @@ public class NewsClient
         when (ex is EndOfStreamException || ex is DecoderFallbackException)
         {
             Console.WriteLine("Failed to read packet.\n{0}\n", ex.Message);
+            Unsubscribe(false);
         }
     }
 
